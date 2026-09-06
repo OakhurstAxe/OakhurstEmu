@@ -19,7 +19,11 @@ pub mod nes {
         left_controller_latch: u8,
         right_controller: u8,
         right_controller_latch: u8,
-        irq_set: bool,
+        irq_dmc_set: bool,
+        irq_dmc_start_ack: bool,
+        irq_frame_set: bool,
+        irq_dmc_enable: bool,
+        irq_frame_enable: bool,
         interrupt_set: bool,
         frame_counter: u16,
         pub ppu_dma_write: u16,
@@ -44,7 +48,11 @@ pub mod nes {
                 left_controller_latch: 0,
                 right_controller: 0,
                 right_controller_latch: 0,
-                irq_set: false,
+                irq_dmc_set: false,
+                irq_frame_set: false,
+                irq_dmc_enable: false,
+                irq_dmc_start_ack: true,
+                irq_frame_enable: false,
                 interrupt_set: false,
                 frame_counter: 0,
                 ppu_dma_write: 0,
@@ -76,6 +84,8 @@ pub mod nes {
             }
 
             if self.apu_dma_delay == 0 && (self.read(0x10) & 0x40 != 0) {
+                self.irq_dmc_set = true;
+                println!("Set API DMC IRQ delay 0");
                 let length = self.read(0x13) as u16;
                 self.apu_dma_write = (length << 4) + 1;
             }
@@ -93,9 +103,13 @@ pub mod nes {
                     self.apu_dma_read = false;
                 } else {
                     // write byte
-                    addr.byte = 0x40;
+                    //addr.byte = 0x40;
                     self.apu_dma_read = true;
                     self.apu_dma_write -= 1;
+                    if self.apu_dma_write == 0 {
+                        self.irq_dmc_set = true;
+                        println!("Set APU dmc IRQ, write");
+                    }
                 }
 
             } else if self.ppu_dma_write > 0 {
@@ -117,9 +131,18 @@ pub mod nes {
                 if addr.write {
                     // PPU DMA
                     if location == 0x10 {
-                        addr.byte = 0x00;
-                    }
-                    else if location == 0x14 {
+                        self.irq_dmc_enable = (addr.byte & 0x80) != 0;
+                        println!("APU write to 4010 {:x} enabled {}", addr.byte, self.irq_dmc_enable);
+                        if (addr.byte & 0x80) == 0 && !self.irq_dmc_start_ack {
+                            self.irq_dmc_start_ack = true;
+                            println!("Clear apu irq dmc write 0x10");
+                            self.irq_dmc_set = false;
+                        }
+                        if (addr.byte & 0x80) != 0 && self.irq_dmc_start_ack {
+                            self.irq_dmc_start_ack = false;
+                        }
+                        //addr.byte = 0x00;
+                    } else if location == 0x14 {
                         self.ppu_dma_write = 256;
                         self.ppu_dma_address = (addr.byte as u16) << 8;
                     } else if location == 0x15 && ((addr.byte & 0x10) > 0) {
@@ -127,12 +150,23 @@ pub mod nes {
                         self.apu_dma_address = 0xC0 + (apu_address << 8);
                         let length = self.read(0x13) as u16;
                         self.apu_dma_write = (length << 4) + 1;
+                        println!("Clear apu irq dmc write 0x15 length {}", self.apu_dma_write);
+                        self.irq_dmc_set = false;
+                    } else if location == 0x17 {
+                        println!("APU write to 4017 {:x}", addr.byte);
+                        if (addr.byte & 0x80) == 0 {
+                            self.frame_counter = TICKS_PER_FRAME >> 4;
+                        }
+                        self.irq_frame_enable = (addr.byte & 0xC0) == 0;
                     } else {
-                        self.write(location, addr.byte);
+                        self.apu_io_registers.write(location, addr.byte);
                     }
                     addr.write = false;
                 } else {
-                    if location == 0x16 {
+                    if location == 0x15 {
+                        self.irq_frame_set = false;
+                        addr.byte = self.apu_io_registers.read(location);
+                    } else if location == 0x16 {
                         addr.byte = (addr.byte & 0xE0) | (self.left_controller & 0x01);
                         if self.apu_io_registers.read(0x16) & 0x01 == 0 {
                             self.left_controller >>= 1;
@@ -151,8 +185,8 @@ pub mod nes {
             if self.frame_counter > 0 {
                 self.frame_counter -= 1;
             }
-            if self.frame_counter == 0 && self.interrupt_set == true {
-                self.irq_set = true;
+            if self.frame_counter == 0 && self.interrupt_set {
+                self.irq_frame_set = true;
             }
 
             let mut register1: u8 = self.apu_io_registers.read(0);
@@ -212,21 +246,6 @@ pub mod nes {
             self.apu_io_registers.read(location)
         }
 
-        pub fn write(&mut self, location: u16, byte: u8) {
-            self.apu_io_registers.write(location, byte);
-
-            if location == 0x17 {
-                if (byte & 0x80) == 0 {
-                    self.frame_counter = TICKS_PER_FRAME >> 4;
-                }
-                if (byte & 0x40) != 0 {
-                    self.interrupt_set = false;
-                } else {
-                    self.interrupt_set = true;
-                }
-            }
-        }
-
         pub fn set_left_controller(&mut self, byte: u8) {
             self.left_controller_latch = byte;
         }
@@ -236,15 +255,9 @@ pub mod nes {
         }
 
         pub fn is_irq_set(&self) -> bool {
-            self.irq_set
+            (self.irq_dmc_set && self.irq_dmc_enable) || self.irq_frame_set
         }
         
-        pub fn reset_irq(&mut self) {
-            self.irq_set = false;
-            self.interrupt_set = false;
-        }
-
-
         pub fn get_audio_buffer(&mut self) -> Vec<u8> {
 
             let mut mix:Vec<u8> = Vec::with_capacity(SAMPLES_PER_FRAME);

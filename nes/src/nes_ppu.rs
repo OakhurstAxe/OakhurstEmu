@@ -316,7 +316,12 @@ pub mod nes {
                 } else {
                     addr.byte = Self::ppu_register_read(ppu,addr.address, cartridge);
                 }
-            }                
+            }
+
+            // Read from APU gets PPU bus
+            if (0x4000..0x4015).contains(&addr.address) && !addr.write {
+                addr.byte = ppu.video_bus.byte;
+            }
         }
 
         fn ppu_register_write(ppu: &mut NesPpu, addr: &mut AddressBus) {
@@ -335,6 +340,9 @@ pub mod nes {
                     if addr.byte & 0x80 != 0 && control_register.vblank_nmi_enable() && status_register.vblank_flag() {
                         ppu.nmi_set = true;
                     }
+                },
+                0x02 => {
+                    println!("PPU Write 2002")
                 },
                 0x01 => ppu.registers.write(1, addr.byte),
                 0x03 => ppu.registers.write(3, addr.byte),

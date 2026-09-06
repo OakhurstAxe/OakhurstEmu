@@ -6,14 +6,14 @@ pub mod emu_cpu{
     use crate::m6502_opcodes::mopcodes::{*};
     use crate::m6502_opcode_ticks::mopcodeticks::{*};
 
-    pub const CARRY_FLAG: u8     = 1;
-    pub const ZERO_FLAG: u8      = 2;
-    pub const INTERRUPT_FLAG: u8 = 4;
-    pub const DECIMAL_MODE: u8   = 8;
-    pub const BREAK_COMMAND: u8  = 16;
-    pub const IGNORED: u8        = 32;
-    pub const OVERFLOW_FLAG: u8  = 64;
-    pub const NEGATIVE_FLAG: u8  = 128;
+    pub const CARRY_FLAG: u8     = 0x01;
+    pub const ZERO_FLAG: u8      = 0x02;
+    pub const INTERRUPT_FLAG: u8 = 0x04;
+    pub const DECIMAL_MODE: u8   = 0x08;
+    pub const BREAK_COMMAND: u8  = 0x10;
+    pub const IGNORED: u8        = 0x20;
+    pub const OVERFLOW_FLAG: u8  = 0x40;
+    pub const NEGATIVE_FLAG: u8  = 0x80;
 
     #[derive(Default)]
     pub struct AddressBus {
@@ -45,7 +45,8 @@ pub mod emu_cpu{
         pub register_y: u8,
         pub status_register: u8,
         pub lookup_address: AddressBus,
-        pub in_interrupt: bool,
+        pub op_cli_clear: bool,
+        pub op_sei_set: bool,
         pub byte: u8,
         _debug: u8,
     }
@@ -61,7 +62,8 @@ pub mod emu_cpu{
                 register_y: 0,
                 status_register: 0,
                 lookup_address: AddressBus::new(0, false, 0),
-                in_interrupt: false,
+                op_cli_clear: false,
+                op_sei_set: false,
                 byte: 0,
                 _debug: 0,
             }
@@ -95,9 +97,7 @@ pub mod emu_cpu{
         address_method_lookup: Vec<Box<dyn AddressMethod>>,
         tick_count: u8,
         is_nmi_set: bool,
-        nmi_buffered: bool,
         is_irq_set: bool,
-        irq_buffered: bool,
         pub can_halt: bool,
         _debug: u8,
     }
@@ -143,20 +143,22 @@ pub mod emu_cpu{
                 address_method_lookup: AddressOpCodes::get_address_methods(),
                 tick_count: 0,
                 is_nmi_set: false,
-                nmi_buffered: false,
                 is_irq_set: false,
-                irq_buffered: false,
                 can_halt: false,
                 _debug: 0,
             }
         }
 
-        pub fn set_nmi(&mut self) {
+        pub fn set_nmi(&mut self) -> bool {
+            if self.is_nmi_set {
+                return false;
+            }
             self.is_nmi_set = true;
+            true
         }
 
-        pub fn set_irq(&mut self) {
-            self.is_irq_set = true;
+        pub fn set_irq(&mut self, value: bool) {
+            self.is_irq_set = value;
         }
 
         pub fn execute_tick(&mut self, addr: &mut AddressBus) {
@@ -178,14 +180,15 @@ pub mod emu_cpu{
                     self.op_code = 0x100;
                     self.runner_step = M6502RunnerStep::OpCodeStep;
                     self.is_reset_set = false;
-                } else if self.nmi_buffered {
+                } else if self.is_nmi_set {
                     self.op_code = 0x101;
                     self.runner_step = M6502RunnerStep::OpCodeStep;
-                    self.nmi_buffered = false;
-                } else if self.irq_buffered {
+                    self.is_nmi_set = false;
+                } else if self.is_irq_set && OpCodesUtils::get_status_flag(&mut self.cpu, INTERRUPT_FLAG) == 0 {
                     self.op_code = 0x102;
                     self.runner_step = M6502RunnerStep::OpCodeStep;
-                    self.irq_buffered = false;
+                    //self.is_irq_set = false;
+println!("Calling IRQ");
                 } else {
                     self.runner_step = M6502RunnerStep::AddressStep;
                     //self.op_code_ticks.check_ticks(self.cpu.program_counter, self.op_code, self.tick_count);
@@ -194,14 +197,23 @@ pub mod emu_cpu{
                     self.cpu.program_counter = self.cpu.program_counter.wrapping_add(1);
                     self.tick_count = 0;
                 }
-                if self.is_irq_set && OpCodesUtils::get_status_flag(&mut self.cpu, INTERRUPT_FLAG) == 0 {
-                    self.irq_buffered = true;
-                    self.is_irq_set = false;
+
+                // Calling CLI works AFTER next op is loaded
+                if self.cpu.op_cli_clear {
+                    self.cpu.op_cli_clear = false;
+                    OpCodesUtils::set_status_flag(&mut self.cpu, INTERRUPT_FLAG, false);
+//    println!("Clear int flag, cli");
                 }
-                if self.is_nmi_set {
-                    self.nmi_buffered = true;
-                    self.is_nmi_set = false;
+                if self.cpu.op_sei_set {
+                    self.cpu.op_sei_set = false;
+                    OpCodesUtils::set_status_flag(&mut self.cpu, INTERRUPT_FLAG, true);
+    println!("Set int flag, sei");
                 }
+
+                if self.is_irq_set {
+                    //println!("Interrupt flag preventing IRQ");
+                }
+
             }
 
             self.tick_count += 1;

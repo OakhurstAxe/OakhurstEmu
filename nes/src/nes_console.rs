@@ -100,25 +100,17 @@ pub mod nes {
                 }
                 self.cartridge.execute_tick(&mut self.addr);
                 if self.cartridge.is_irq_set() {
+                    //self.cpu_runner.set_irq();
 println!("Cart IRQ set");
-                    self.cpu_runner.set_irq();
                     self.cartridge.reset_irq();
                 }
 
                 self.ram_execute_tick();
 
-                if (ticks % 2) == 0 {
-                    // APU should be here?
-                }
-                
-
                 if (ticks % 3) == 0 {
                     
                     self.apu.execute_tick(&mut self.addr, &mut self.ppu);
-                    if self.apu.is_irq_set() {
-                        self.cpu_runner.set_irq();
-                        self.apu.reset_irq();
-                    }
+                    self.cpu_runner.set_irq(self.apu.is_irq_set());
 
                     if self.apu.ppu_dma_write == 0 && self.apu.apu_dma_write == 0 {
                         self.cpu_runner.execute_tick(&mut self.addr);
@@ -128,8 +120,7 @@ println!("Cart IRQ set");
 
                 NesPpuRunner::execute_tick(&mut self.ppu, &mut self.cartridge);
 
-                if self.ppu.nmi_set {
-                    self.cpu_runner.set_nmi();
+                if self.ppu.nmi_set && self.cpu_runner.set_nmi() {
                     self.ppu.nmi_set = false;
                 }
                 ticks += 1;
