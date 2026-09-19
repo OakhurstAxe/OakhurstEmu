@@ -317,11 +317,6 @@ pub mod nes {
                     addr.byte = Self::ppu_register_read(ppu,addr.address, cartridge);
                 }
             }
-
-            // Read from APU gets PPU bus
-            if (0x4000..0x4015).contains(&addr.address) && !addr.write {
-                addr.byte = ppu.video_bus.byte;
-            }
         }
 
         fn ppu_register_write(ppu: &mut NesPpu, addr: &mut AddressBus) {

@@ -1,5 +1,5 @@
 
-pub mod mopcodeticks {
+pub mod m6502_opcodeticks {
 
     #[derive(Default)]
     pub struct OpCodeTicks {

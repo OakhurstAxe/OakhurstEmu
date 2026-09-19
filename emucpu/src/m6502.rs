@@ -2,9 +2,9 @@
 
 pub mod emu_cpu{
 
-    use crate::m6502_address::maddress::{*};
-    use crate::m6502_opcodes::mopcodes::{*};
-    use crate::m6502_opcode_ticks::mopcodeticks::{*};
+    use crate::m6502_address::m6502_address::{*};
+    use crate::m6502_opcodes::m6502_opcodes::{*};
+    use crate::m6502_opcode_ticks::m6502_opcodeticks::{*};
 
     pub const CARRY_FLAG: u8     = 0x01;
     pub const ZERO_FLAG: u8      = 0x02;
@@ -47,7 +47,7 @@ pub mod emu_cpu{
         pub lookup_address: AddressBus,
         pub op_cli_clear: bool,
         pub op_sei_set: bool,
-        pub byte: u8,
+        pub is_halted: bool,
         _debug: u8,
     }
 
@@ -64,7 +64,7 @@ pub mod emu_cpu{
                 lookup_address: AddressBus::new(0, false, 0),
                 op_cli_clear: false,
                 op_sei_set: false,
-                byte: 0,
+                is_halted: false,
                 _debug: 0,
             }
         }
@@ -85,6 +85,13 @@ pub mod emu_cpu{
         OpCodeWrite,
     }
 
+    #[derive(PartialEq)]
+    enum M6502AddressRead {
+        OpCode,
+        AddressStep,
+        OpCodeStep,
+    }
+
     pub struct M6502Runner {
         cpu: M6502,
         op_code: u16,
@@ -98,7 +105,7 @@ pub mod emu_cpu{
         tick_count: u8,
         is_nmi_set: bool,
         is_irq_set: bool,
-        pub can_halt: bool,
+        is_halt_set: bool,
         _debug: u8,
     }
 
@@ -144,25 +151,81 @@ pub mod emu_cpu{
                 tick_count: 0,
                 is_nmi_set: false,
                 is_irq_set: false,
-                can_halt: false,
+                is_halt_set: false,
                 _debug: 0,
             }
         }
 
-        pub fn set_nmi(&mut self) -> bool {
-            if self.is_nmi_set {
-                return false;
-            }
-            self.is_nmi_set = true;
-            true
+        pub fn set_nmi(&mut self, value: bool) {
+            self.is_nmi_set = value;
         }
 
         pub fn set_irq(&mut self, value: bool) {
             self.is_irq_set = value;
         }
 
+        pub fn halt_cpu(&mut self, halt: bool) {
+            self.is_halt_set = halt;
+        }
+
+        pub fn is_cpu_halted(&mut self) -> bool {
+            self.cpu.is_halted
+        }
+
+        fn reset(&mut self) {
+            self.op_code = 0x100;
+            self.runner_step = M6502RunnerStep::OpCodeStep;
+            self.is_reset_set = false;
+        }
+
+        fn nmi(&mut self) {
+            self.op_code = 0x101;
+            self.runner_step = M6502RunnerStep::OpCodeStep;
+            self.is_nmi_set = false;
+        }
+
+        fn irq(&mut self) {
+            self.op_code = 0x102;
+            self.runner_step = M6502RunnerStep::OpCodeStep;
+        }
+
+        fn read_program_counter(&mut self, addr: &mut AddressBus) {
+            addr.is_accumulator = false;
+            self.cpu.lookup_address.is_abs_y = false;
+            if self.is_reset_set {
+                self.reset();
+            } else if self.is_nmi_set {
+                self.nmi();
+            } else if self.is_irq_set && OpCodesUtils::get_status_flag(&mut self.cpu, INTERRUPT_FLAG) == 0 {
+                self.irq();
+            } else {
+                self.runner_step = M6502RunnerStep::AddressStep;
+                //self.op_code_ticks.check_ticks(self.cpu.program_counter, self.op_code, self.tick_count);
+                self.op_code = addr.byte as u16;
+                //println!("PC: {:x}, opcode: {:x} ", self.cpu.program_counter, self.op_code);
+                self.cpu.program_counter = self.cpu.program_counter.wrapping_add(1);
+                self.tick_count = 0;
+            }
+        }
+
         pub fn execute_tick(&mut self, addr: &mut AddressBus) {
             
+            self.tick_count += 1;
+            
+            if self.is_halt_set && self.cpu.is_halted {
+                return;
+            }
+
+            if self.is_halt_set && !self.cpu.is_halted && !addr.write {
+                self.cpu.is_halted = true;
+                return;
+            }
+
+            if !self.is_halt_set && self.cpu.is_halted {
+                self.cpu.is_halted = false;
+                return;
+            }
+
             if self.runner_step == M6502RunnerStep::AddressStepLoadByte {
                 self.cpu.lookup_address.byte = addr.byte;
                 self.cpu.lookup_address.address = addr.address;
@@ -173,50 +236,18 @@ pub mod emu_cpu{
 
             // Geting new op code
             if self.runner_step == M6502RunnerStep::ReadPc {
-                self.can_halt = false;
-                addr.is_accumulator = false;
-                self.cpu.lookup_address.is_abs_y = false;
-                if self.is_reset_set {
-                    self.op_code = 0x100;
-                    self.runner_step = M6502RunnerStep::OpCodeStep;
-                    self.is_reset_set = false;
-                } else if self.is_nmi_set {
-                    self.op_code = 0x101;
-                    self.runner_step = M6502RunnerStep::OpCodeStep;
-                    self.is_nmi_set = false;
-                } else if self.is_irq_set && OpCodesUtils::get_status_flag(&mut self.cpu, INTERRUPT_FLAG) == 0 {
-                    self.op_code = 0x102;
-                    self.runner_step = M6502RunnerStep::OpCodeStep;
-                    //self.is_irq_set = false;
-println!("Calling IRQ");
-                } else {
-                    self.runner_step = M6502RunnerStep::AddressStep;
-                    //self.op_code_ticks.check_ticks(self.cpu.program_counter, self.op_code, self.tick_count);
-                    self.op_code = addr.byte as u16;
-                    //println!("PC: {:x}, opcode: {:x} ", self.cpu.program_counter, self.op_code);
-                    self.cpu.program_counter = self.cpu.program_counter.wrapping_add(1);
-                    self.tick_count = 0;
-                }
+                self.read_program_counter(addr);
 
                 // Calling CLI works AFTER next op is loaded
                 if self.cpu.op_cli_clear {
                     self.cpu.op_cli_clear = false;
                     OpCodesUtils::set_status_flag(&mut self.cpu, INTERRUPT_FLAG, false);
-//    println!("Clear int flag, cli");
                 }
                 if self.cpu.op_sei_set {
                     self.cpu.op_sei_set = false;
                     OpCodesUtils::set_status_flag(&mut self.cpu, INTERRUPT_FLAG, true);
-    println!("Set int flag, sei");
                 }
-
-                if self.is_irq_set {
-                    //println!("Interrupt flag preventing IRQ");
-                }
-
             }
-
-            self.tick_count += 1;
 
             // Calling address/op tick
             if self.runner_step == M6502RunnerStep::AddressStep {
@@ -240,11 +271,10 @@ println!("Calling IRQ");
                 } else {
                     self.op_step += 1;
                 }
-            } 
+            }
 
             if self.runner_step == M6502RunnerStep::OpCodeWrite && !addr.write {
                 self.runner_step = M6502RunnerStep::ReadPc;
-                self.can_halt = true;
                 addr.address = self.cpu.program_counter;
             }
 

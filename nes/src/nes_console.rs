@@ -109,20 +109,19 @@ println!("Cart IRQ set");
 
                 if (ticks % 3) == 0 {
                     
-                    self.apu.execute_tick(&mut self.addr, &mut self.ppu);
+                    self.apu.execute_tick(&mut self.addr, &mut self.ppu, self.cpu_runner.is_cpu_halted());
                     self.cpu_runner.set_irq(self.apu.is_irq_set());
 
-                    if self.apu.ppu_dma_write == 0 && self.apu.apu_dma_write == 0 {
-                        self.cpu_runner.execute_tick(&mut self.addr);
-                    }
+                    self.cpu_runner.halt_cpu(self.apu.ppu_dma_write > 0 || self.apu.apu_dma_write > 0);
+                    self.cpu_runner.execute_tick(&mut self.addr);
                     NesPpuRunner::execute_memory(&mut self.ppu, &mut self.addr, &mut self.cartridge);
                 }
 
                 NesPpuRunner::execute_tick(&mut self.ppu, &mut self.cartridge);
 
-                if self.ppu.nmi_set && self.cpu_runner.set_nmi() {
-                    self.ppu.nmi_set = false;
-                }
+                self.cpu_runner.set_nmi(self.ppu.nmi_set);
+                self.ppu.nmi_set = false;
+
                 ticks += 1;
             }
             self.read_gamepad();

@@ -2,8 +2,6 @@
 
 pub mod nes {
 
-    use std::sync::Arc;
-
 use emucpu::prelude::*;
     
     use crate::nes_cartridge::nes::NesCartridge;
@@ -13,7 +11,6 @@ use emucpu::prelude::*;
         cart_data: NesCartridge,
         
         load_register: u8,
-        shift_register: u8,
         control_register: u8,
         char_bank_0: u8,
         char_bank_1: u8,
@@ -44,7 +41,6 @@ use emucpu::prelude::*;
             Self { 
                 cart_data,
                 load_register: 0x20,
-                shift_register: 0,
                 control_register: 0xC0,
                 char_bank_0: 0,
                 char_bank_1: 0,

@@ -1,7 +1,7 @@
 
 
 
-pub mod maddress{
+pub mod m6502_address{
 
     use crate::m6502::emu_cpu::M6502;
     use crate::m6502::emu_cpu::AddressBus;

@@ -13,6 +13,11 @@ pub mod nes {
     use crate::nes_console::nes::TICKS_PER_FRAME;
     use crate::nes_ppu::nes::{ NesPpuRunner, NesPpu };
 
+    const DMC_FREQUENCY: [u16; 16] = [
+        428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54
+//        218, 190, 170, 160, 143, 127, 113, 107, 95, 80, 71, 64, 53, 42, 36, 54
+  ];
+
     pub struct NesApu {
         apu_io_registers: MemoryRamFlagged,
         left_controller: u8,
@@ -26,6 +31,7 @@ pub mod nes {
         irq_frame_enable: bool,
         interrupt_set: bool,
         frame_counter: u16,
+        apu_data_bus: u8,
         pub ppu_dma_write: u16,
         ppu_dma_address: u16,
         ppu_dma_read: bool,
@@ -55,6 +61,7 @@ pub mod nes {
                 irq_frame_enable: false,
                 interrupt_set: false,
                 frame_counter: 0,
+                apu_data_bus: 0,
                 ppu_dma_write: 0,
                 ppu_dma_address: 0,
                 ppu_dma_read: true,
@@ -69,7 +76,7 @@ pub mod nes {
             }
         }
         
-        pub fn execute_tick(&mut self, addr: &mut AddressBus, ppu: &mut NesPpu) {
+        pub fn execute_tick(&mut self, addr: &mut AddressBus, ppu: &mut NesPpu, cpu_halted: bool) {
 
             // Controller strobe
             if self.apu_io_registers.read(0x16) & 0x01 > 0 {
@@ -79,58 +86,16 @@ pub mod nes {
                 self.right_controller = self.right_controller_latch;
             }
 
-            if self.apu_dma_delay > 0 {
-                self.apu_dma_delay -= 1;
-            }
+            self.apu_data_bus = 0x40;
 
-            if self.apu_dma_delay == 0 && (self.read(0x10) & 0x40 != 0) {
-                self.irq_dmc_set = true;
-                println!("Set API DMC IRQ delay 0");
-                let length = self.read(0x13) as u16;
-                self.apu_dma_write = (length << 4) + 1;
-            }
-
-            if self.apu_dma_write == 0 && (self.read(0x10) & 0x40 != 0) {
-                self.apu_dma_delay = 54; // should be lookup
-            }
-             
-
-            if self.apu_dma_write > 0 {
-                if self.apu_dma_read {
-                    // read byte
-                    addr.address = self.apu_dma_address;
-                    self.apu_dma_address = self.apu_dma_address.wrapping_add(1);
-                    self.apu_dma_read = false;
-                } else {
-                    // write byte
-                    //addr.byte = 0x40;
-                    self.apu_dma_read = true;
-                    self.apu_dma_write -= 1;
-                    if self.apu_dma_write == 0 {
-                        self.irq_dmc_set = true;
-                        println!("Set APU dmc IRQ, write");
-                    }
-                }
-
-            } else if self.ppu_dma_write > 0 {
-                if self.ppu_dma_read {
-                    addr.address = self.ppu_dma_address;
-                    self.ppu_dma_address += 1;
-                    self.ppu_dma_read = false;
-                } else {
-                    NesPpuRunner::oam_write(ppu, (256 - self.ppu_dma_write) as u8, addr.byte);
-                    self.ppu_dma_read = true;
-                    self.ppu_dma_write -= 1;
-                }
-
-            } 
-            
             if (0x4000..0x4018).contains(&addr.address) {
+    
                 let location = addr.address - 0x4000;
 
                 if addr.write {
                     // PPU DMA
                     if location == 0x10 {
+                        self.apu_io_registers.write(0x10, addr.byte);
                         self.irq_dmc_enable = (addr.byte & 0x80) != 0;
                         println!("APU write to 4010 {:x} enabled {}", addr.byte, self.irq_dmc_enable);
                         if (addr.byte & 0x80) == 0 && !self.irq_dmc_start_ack {
@@ -140,17 +105,18 @@ pub mod nes {
                         }
                         if (addr.byte & 0x80) != 0 && self.irq_dmc_start_ack {
                             self.irq_dmc_start_ack = false;
+                            self.apu_dma_delay = DMC_FREQUENCY[(self.read(0x10) & 0x0F) as usize];
+                            println!("Set APU DMC IRQ delay {}", self.apu_dma_delay);
+                            let length = self.read(0x13) as u16;
+                            self.apu_dma_write = (length << 4) + 1;
                         }
-                        //addr.byte = 0x00;
                     } else if location == 0x14 {
                         self.ppu_dma_write = 256;
                         self.ppu_dma_address = (addr.byte as u16) << 8;
                     } else if location == 0x15 && ((addr.byte & 0x10) > 0) {
+                        println!("APU write to 0x40{:x} {:x}", location, addr.byte);
                         let apu_address: u16 = self.read(0x12) as u16;
                         self.apu_dma_address = 0xC0 + (apu_address << 8);
-                        let length = self.read(0x13) as u16;
-                        self.apu_dma_write = (length << 4) + 1;
-                        println!("Clear apu irq dmc write 0x15 length {}", self.apu_dma_write);
                         self.irq_dmc_set = false;
                     } else if location == 0x17 {
                         println!("APU write to 4017 {:x}", addr.byte);
@@ -159,6 +125,7 @@ pub mod nes {
                         }
                         self.irq_frame_enable = (addr.byte & 0xC0) == 0;
                     } else {
+                        println!("APU write to 0x40{:x} {:x}", location, addr.byte);
                         self.apu_io_registers.write(location, addr.byte);
                     }
                     addr.write = false;
@@ -180,6 +147,57 @@ pub mod nes {
                 }
             } else if (0x4018..0x401f).contains(&addr.address) {
                 addr.write = false;
+            }
+
+            if self.apu_dma_delay == 0 && (self.read(0x10) & 0x40 != 0) {
+                self.apu_dma_delay = DMC_FREQUENCY[(self.read(0x10) & 0x0F) as usize];
+                println!("Set APU DMC IRQ delay {}", self.apu_dma_delay);
+                let length = self.read(0x13) as u16;
+                self.apu_dma_write = (length << 4) + 1;
+            }
+
+            if self.apu_dma_delay > 0 {
+                self.apu_dma_delay -= 1;
+            }
+            if self.apu_dma_delay == 0 {
+                self.irq_dmc_set = true;
+            }
+
+            if self.apu_dma_write > 0 && cpu_halted {
+                if self.apu_dma_read {
+                    // read byte
+                    addr.address = self.apu_dma_address;
+                    self.apu_dma_address = self.apu_dma_address.wrapping_add(1);
+                    self.apu_dma_read = false;
+                    self.apu_data_bus = addr.byte;
+                } else {
+                    // write byte
+                    //addr.byte = 0x40;
+                    self.apu_dma_read = true;
+                    self.apu_dma_write -= 1;
+                    self.apu_data_bus = addr.byte;
+                     println!("Set APU data bus {:x}", self.apu_data_bus);
+                    if self.apu_dma_write == 0 {
+                        self.irq_dmc_set = true;
+                        println!("Set APU dmc IRQ, write");
+                    }
+                }
+            } else if self.ppu_dma_write > 0 && cpu_halted {
+                if self.ppu_dma_read {
+                    addr.address = self.ppu_dma_address;
+                    self.ppu_dma_address += 1;
+                    self.ppu_dma_read = false;
+                } else {
+                    self.apu_data_bus = addr.byte;
+                    NesPpuRunner::oam_write(ppu, (256 - self.ppu_dma_write) as u8, addr.byte);
+                    self.ppu_dma_read = true;
+                    self.ppu_dma_write -= 1;
+                }
+
+            }
+
+            if (0x4000..0x4015).contains(&addr.address) {
+                addr.byte = self.apu_data_bus;
             }
 
             if self.frame_counter > 0 {

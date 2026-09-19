@@ -43,7 +43,7 @@ pub mod nes {
 
         }
 
-        fn cpu_read(&self, mut location: u16) -> u8 {
+        fn cpu_read(&self, location: u16) -> u8 {
 
             match location {
                 (0x6000..0x8000) => {
@@ -63,7 +63,7 @@ pub mod nes {
             eprintln!("This cartridge does not support cpu write {}", location);
         }
 
-        fn ppu_read(&mut self, mut location: u16) -> u8 {
+        fn ppu_read(&mut self, location: u16) -> u8 {
 
             let index = location / 0x400;
             self.cart_data.ppu_char_rom[index as usize][(location - (0x400 * index)) as usize]

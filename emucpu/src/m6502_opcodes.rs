@@ -1,9 +1,7 @@
 
-pub mod mopcodes {
+pub mod m6502_opcodes {
 
-    use std::io::ErrorKind::Interrupted;
-
-use crate::m6502::emu_cpu::M6502;
+    use crate::m6502::emu_cpu::M6502;
     use crate::m6502::emu_cpu::AddressBus;
     use crate::m6502::emu_cpu::{CARRY_FLAG, ZERO_FLAG, INTERRUPT_FLAG, DECIMAL_MODE, BREAK_COMMAND, IGNORED, OVERFLOW_FLAG, NEGATIVE_FLAG};
 
@@ -1152,7 +1150,7 @@ use crate::m6502::emu_cpu::M6502;
     // Branch Operations
     struct CpuOpBcc {}
     impl CpuOperation for CpuOpBcc {
-        fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_0(&self, cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, CARRY_FLAG) == 0 {
                 return false;
             }
@@ -1180,7 +1178,7 @@ use crate::m6502::emu_cpu::M6502;
 
     struct CpuOpBcs {}
     impl CpuOperation for CpuOpBcs {
-        fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_0(&self, cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, CARRY_FLAG) != 0 {
                 return false;
             }
@@ -1208,7 +1206,7 @@ use crate::m6502::emu_cpu::M6502;
 
     struct CpuOpBne {}
     impl CpuOperation for CpuOpBne {
-        fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_0(&self, cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, ZERO_FLAG) == 0 {
                 return false;
             }
@@ -1236,7 +1234,7 @@ use crate::m6502::emu_cpu::M6502;
 
     struct CpuOpBeq {}
     impl CpuOperation for CpuOpBeq {
-        fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_0(&self, cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, ZERO_FLAG) != 0 {
                 return false;
             }
@@ -1264,7 +1262,7 @@ use crate::m6502::emu_cpu::M6502;
 
     struct CpuOpBpl {}
     impl CpuOperation for CpuOpBpl {
-        fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_0(&self, cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, NEGATIVE_FLAG) == 0 {
                 return false;
             }
@@ -1292,7 +1290,7 @@ use crate::m6502::emu_cpu::M6502;
 
     struct CpuOpBmi {}
     impl CpuOperation for CpuOpBmi {
-        fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_0(&self, cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, NEGATIVE_FLAG) != 0 {
                 return false;
             }
@@ -1320,7 +1318,7 @@ use crate::m6502::emu_cpu::M6502;
 
     struct CpuOpBvc {}
     impl CpuOperation for CpuOpBvc {
-        fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_0(&self, cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, OVERFLOW_FLAG) == 0 {
                 return false;
             }
@@ -1348,7 +1346,7 @@ use crate::m6502::emu_cpu::M6502;
 
     struct CpuOpBvs {}
     impl CpuOperation for CpuOpBvs {
-        fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_0(&self, cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, OVERFLOW_FLAG) != 0 {
                 return false;
             }
@@ -1508,7 +1506,7 @@ println!("Set int flag, brk");
         }
         fn step_5(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.program_counter += (addr.byte as u16) << 8;
-println!("Set int flag, nmi");
+//println!("Set int flag, nmi");
             OpCodesUtils::set_status_flag(cpu, INTERRUPT_FLAG, true);
             true
         }
@@ -1549,7 +1547,7 @@ println!("Set int flag, irq");
     struct CpuOpRti {}
     impl CpuOperation for CpuOpRti {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-println!("RTI called");
+//println!("RTI called");
             OpCodesUtils::pop_stack(cpu, addr);
             false
         }

@@ -5,6 +5,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use rfd::FileDialog;
 
+use neogeo::prelude::*;
 use nes::prelude::*;
 use vcs::prelude::*;
 
@@ -12,8 +13,15 @@ use vcs::prelude::*;
 enum EmuAppState {
     #[default]
     Menu,
+    NeoGeoGame,
     NesGame,
     VcsGame,
+}
+
+#[derive(Component)]
+struct NeoGeoButton;
+pub struct NeoGeoPlugin<S: States> {
+    pub state: S,
 }
 
 #[derive(Component)]
@@ -26,6 +34,16 @@ pub struct NesPlugin<S: States> {
 struct VcsButton;
 pub struct VcsPlugin<S: States> {
     pub state: S,
+}
+
+impl<S: States> Plugin for NeoGeoPlugin<S> {
+    fn build(&self, app: &mut App) {
+        app
+        .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(17)))
+        .add_systems(OnEnter(EmuAppState::NeoGeoGame), NeoGeoBevy::setup.run_if(in_state(EmuAppState::NeoGeoGame)))
+        .add_systems(FixedUpdate, NeoGeoBevy::frame.run_if(in_state(EmuAppState::NeoGeoGame)))
+        .add_systems(Update, NeoGeoBevy::gamepad_system.run_if(in_state(EmuAppState::NeoGeoGame)));
+    }
 }
 
 impl<S: States> Plugin for NesPlugin<S> {
@@ -58,15 +76,47 @@ fn main() {
             }),
             ..Default::default()
         }))
+        .add_plugins(NeoGeoPlugin {state: EmuAppState::NeoGeoGame})
         .add_plugins(NesPlugin {state: EmuAppState::NesGame})
         .add_plugins(VcsPlugin {state: EmuAppState::VcsGame})
         .init_state::<EmuAppState>()
         .add_systems(Startup, setup)
         .add_systems(OnEnter(EmuAppState::Menu), setup_menu)
+        .add_systems(Update, neogeo_menu.run_if(in_state(EmuAppState::Menu)))
         .add_systems(Update, nes_menu.run_if(in_state(EmuAppState::Menu)))
         .add_systems(Update, vcs_menu.run_if(in_state(EmuAppState::Menu)))
         .add_systems(OnExit(EmuAppState::Menu), cleanup_menu)
         .run();
+}
+
+fn neogeo_menu(
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<EmuAppState>>,
+    mut interaction_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<NeoGeoButton>),
+    >,
+) {
+    for (interaction, mut color) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                let files = FileDialog::new()
+                    .add_filter("NEO GEO", &["zip"])
+                    .pick_file();
+                if let Some(file) = files {
+                    commands.insert_resource(NeoGeoRomFile::new(file.into_os_string().into_string().unwrap()));
+                    next_state.set(EmuAppState::NeoGeoGame);
+                }
+                *color = PRESSED_BUTTON.into();
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+            }
+        }
+    }
 }
 
 fn nes_menu(
@@ -98,7 +148,6 @@ fn nes_menu(
         }
     }
 }
-
 
 fn vcs_menu(
     mut commands: Commands,
@@ -161,6 +210,25 @@ pub fn setup_menu(mut commands: Commands) {
                 },
             children![(
                 Button,
+                NeoGeoButton,
+                Node {
+                    width: px(150),
+                    height: px(65),
+                    // horizontally center child text
+                    justify_content: JustifyContent::Center,
+                    // vertically center child text
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("NEO GEO"),
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )]
+            ),
+            (
+                Button,
                 NesButton,
                 Node {
                     width: px(150),
@@ -200,4 +268,3 @@ pub fn setup_menu(mut commands: Commands) {
         .id();
     commands.insert_resource(MenuData { button_entity });
 }
-
