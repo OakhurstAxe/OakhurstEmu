@@ -2,7 +2,6 @@ pub mod nes {
 
     use std::sync::Mutex;
 
-    use emucpu::m6502::emu_cpu::M6502Runner;
     use emucpu::prelude::*;
     use emumemory::prelude::*;
 
@@ -45,7 +44,7 @@ pub mod nes {
             let mut temp_instance = Self {
                 inframe: Mutex::new(false),
                 cpu_runner: M6502Runner::new(M6502Version::Nes),
-                addr: AddressBus { address: 0 , write: false, byte: 0, is_accumulator: false, is_abs_y: false },
+                addr: AddressBus { address: 0 , write: false, byte: 0, is_accumulator: false, is_abs_y: false, bus_state: M6502AddressBus::None },
                 apu: NesApu::new(),
                 ppu: NesPpu::new(),
                 cartridge,

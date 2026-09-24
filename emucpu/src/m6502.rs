@@ -2,6 +2,7 @@
 
 pub mod emu_cpu{
 
+    use crate::m6502::emu_cpu::M6502AddressBus::AddressRead;
     use crate::m6502_address::m6502_address::{*};
     use crate::m6502_opcodes::m6502_opcodes::{*};
     use crate::m6502_opcode_ticks::m6502_opcodeticks::{*};
@@ -15,13 +16,13 @@ pub mod emu_cpu{
     pub const OVERFLOW_FLAG: u8  = 0x40;
     pub const NEGATIVE_FLAG: u8  = 0x80;
 
-    #[derive(Default)]
     pub struct AddressBus {
         pub address: u16,
         pub write: bool,
         pub byte: u8,
         pub is_accumulator: bool,
         pub is_abs_y: bool,
+        pub bus_state: M6502AddressBus,
     }
 
     impl AddressBus {
@@ -32,7 +33,25 @@ pub mod emu_cpu{
                 byte,
                 is_accumulator: false,
                 is_abs_y: false,
+                bus_state: M6502AddressBus::None,
             }
+        }
+
+        pub fn cpu_read(&mut self, address: u16) {
+            self.address = address;
+            self.bus_state = M6502AddressBus::CpuRead;
+        }
+
+        pub fn addr_read(&mut self, address: u16) {
+            self.address = address;
+            self.bus_state = M6502AddressBus::AddressRead;
+        }
+
+        pub fn addr_write(&mut self, address: u16, byte: u8) {
+            self.address = address;
+            self.byte = byte;
+            self.write = true;
+            self.bus_state = M6502AddressBus::AddressRead;
         }
     }
 
@@ -86,10 +105,11 @@ pub mod emu_cpu{
     }
 
     #[derive(PartialEq)]
-    enum M6502AddressRead {
-        OpCode,
-        AddressStep,
-        OpCodeStep,
+    pub enum M6502AddressBus {
+        ReadOpCode,
+        AddressRead,
+        CpuRead,
+        None
     }
 
     pub struct M6502Runner {
@@ -226,11 +246,16 @@ pub mod emu_cpu{
                 return;
             }
 
-            if self.runner_step == M6502RunnerStep::AddressStepLoadByte {
+            if addr.bus_state == M6502AddressBus::CpuRead {
                 self.cpu.lookup_address.byte = addr.byte;
                 self.cpu.lookup_address.address = addr.address;
                 self.cpu.lookup_address.is_accumulator = addr.is_accumulator;
                 self.cpu.lookup_address.is_abs_y = addr.is_abs_y;
+            }
+
+            addr.bus_state = M6502AddressBus::None;
+
+            if self.runner_step == M6502RunnerStep::AddressStepLoadByte {
                 self.runner_step = M6502RunnerStep::OpCodeStep;
             }
 
