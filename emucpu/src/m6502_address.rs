@@ -343,8 +343,8 @@ pub mod m6502_address{
     pub struct AddressMethodImmediate {}
     impl AddressMethod for AddressMethodImmediate {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.cpu_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             true
         }
     }
@@ -352,8 +352,8 @@ pub mod m6502_address{
     pub struct AddressMethodZero {}
     impl AddressMethod for AddressMethodZero {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.cpu_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -365,8 +365,8 @@ pub mod m6502_address{
     pub struct AddressMethodZeroX {}
     impl AddressMethod for AddressMethodZeroX {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.cpu_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -381,8 +381,8 @@ pub mod m6502_address{
     pub struct AddressMethodZeroY {}
     impl AddressMethod for AddressMethodZeroY {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.cpu_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -397,14 +397,14 @@ pub mod m6502_address{
     pub struct AddressMethodAbsolute {}
     impl AddressMethod for AddressMethodAbsolute {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.addr_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.addr_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.lookup_address.address = addr.byte as u16;
-            addr.addr_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.addr_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -417,14 +417,14 @@ pub mod m6502_address{
     pub struct AddressMethodAbsoluteX {}
     impl AddressMethod for AddressMethodAbsoluteX {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.addr_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.addr_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.lookup_address.address = addr.byte as u16;
-            addr.addr_read(cpu.program_counter);
-            cpu.program_counter = cpu.program_counter.wrapping_add(1);
+            addr.addr_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter = cpu.current_state.program_counter.wrapping_add(1);
             false
         }
         fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -449,14 +449,14 @@ pub mod m6502_address{
     pub struct AddressMethodAbsoluteY {}
     impl AddressMethod for AddressMethodAbsoluteY {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.addr_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.addr_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.lookup_address.address = addr.byte as u16;
-            addr.addr_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.addr_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -483,13 +483,13 @@ pub mod m6502_address{
     pub struct AddressMethodIndirect {}
     impl AddressMethod for AddressMethodIndirect {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.cpu_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.lookup_address.address = addr.byte as u16;
-            addr.addr_read(cpu.program_counter);
+            addr.addr_read(cpu.current_state.program_counter);
             false
         }
         fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -514,8 +514,8 @@ pub mod m6502_address{
     pub struct AddressMethodIndirectX {}
     impl AddressMethod for AddressMethodIndirectX {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.addr_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.addr_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -538,8 +538,8 @@ pub mod m6502_address{
     pub struct AddressMethodIndirectY {}
     impl AddressMethod for AddressMethodIndirectY {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.addr_read(cpu.program_counter);
-            cpu.program_counter += 1;
+            addr.addr_read(cpu.current_state.program_counter);
+            cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, _cpu: &mut M6502, addr: &mut AddressBus) -> bool {
