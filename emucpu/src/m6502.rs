@@ -55,22 +55,20 @@ pub mod emu_cpu{
         }
     }
 
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy)]
     pub struct M6502Status {
         pub program_counter: u16,
         pub op_code: u16,
-        pub is_nmi_set: bool,
-        pub is_irq_set: bool,
-        pub is_halt_set: bool,
+        pub status_byte: u8,
+        pub is_op_code_updated: bool,
     }
     impl M6502Status {
         pub fn new() -> M6502Status {
             Self {
                 program_counter: 0,
                 op_code: 0x100,
-                is_nmi_set: false,
-                is_irq_set: false,
-                is_halt_set: false,
+                status_byte: 0,
+                is_op_code_updated: false,
             }
         }
     }
@@ -87,6 +85,9 @@ pub mod emu_cpu{
         pub lookup_address: AddressBus,
         pub op_cli_clear: bool,
         pub op_sei_set: bool,
+        pub is_halt_set: bool,
+        pub is_nmi_set: bool,
+        pub is_irq_set: bool,
         pub is_halted: bool,
         _debug: u8,
     }
@@ -105,6 +106,9 @@ pub mod emu_cpu{
                 lookup_address: AddressBus::new(0, false, 0),
                 op_cli_clear: false,
                 op_sei_set: false,
+                is_halt_set: false,
+                is_nmi_set: false,
+                is_irq_set: false,
                 is_halted: false,
                 _debug: 0,
             }
@@ -191,15 +195,15 @@ pub mod emu_cpu{
         }
 
         pub fn set_nmi(&mut self, value: bool) {
-            self.cpu.current_state.is_nmi_set = value;
+            self.cpu.is_nmi_set = value;
         }
 
         pub fn set_irq(&mut self, value: bool) {
-            self.cpu.current_state.is_irq_set = value;
+            self.cpu.is_irq_set = value;
         }
 
         pub fn halt_cpu(&mut self, halt: bool) {
-            self.cpu.current_state.is_halt_set = halt;
+            self.cpu.is_halt_set = halt;
         }
 
         pub fn is_cpu_halted(&mut self) -> bool {
@@ -215,7 +219,7 @@ pub mod emu_cpu{
         fn nmi(&mut self) {
             self.cpu.current_state.op_code = 0x101;
             self.runner_step = M6502RunnerStep::OpCodeStep;
-            self.cpu.current_state.is_nmi_set = false;
+            self.cpu.is_nmi_set = false;
         }
 
         fn irq(&mut self) {
@@ -223,14 +227,14 @@ pub mod emu_cpu{
             self.runner_step = M6502RunnerStep::OpCodeStep;
         }
 
-        fn read_program_counter(&mut self, addr: &mut AddressBus) {
+        fn read_program_counter(&mut self, addr: &mut AddressBus, fetch_state: M6502Status) {
             addr.is_accumulator = false;
             self.cpu.lookup_address.is_abs_y = false;
             if self.is_reset_set {
                 self.reset();
-            } else if self.cpu.current_state.is_nmi_set {
+            } else if self.cpu.is_nmi_set {
                 self.nmi();
-            } else if self.cpu.current_state.is_irq_set && OpCodesUtils::get_status_flag(&mut self.cpu, INTERRUPT_FLAG) == 0 {
+            } else if self.cpu.is_irq_set && (fetch_state.status_byte & INTERRUPT_FLAG) == 0 {
                 self.irq();
             } else {
                 self.runner_step = M6502RunnerStep::AddressStep;
@@ -246,16 +250,16 @@ pub mod emu_cpu{
             
             self.tick_count += 1;
             
-            if self.cpu.current_state.is_halt_set && self.cpu.is_halted {
+            if self.cpu.is_halt_set && self.cpu.is_halted {
                 return;
             }
 
-            if self.cpu.current_state.is_halt_set && !self.cpu.is_halted && !addr.write {
+            if self.cpu.is_halt_set && !self.cpu.is_halted && !addr.write {
                 self.cpu.is_halted = true;
                 return;
             }
 
-            if !self.cpu.current_state.is_halt_set && self.cpu.is_halted {
+            if !self.cpu.is_halt_set && self.cpu.is_halted {
                 self.cpu.is_halted = false;
                 return;
             }
@@ -269,10 +273,7 @@ pub mod emu_cpu{
 
             if addr.bus_state == M6502AddressBus::ReadOpCode {
                 self.cpu.prefetch_state.op_code = addr.byte as u16;
-                self.cpu.prefetch_state.program_counter = self.cpu.current_state.program_counter;
-                self.cpu.prefetch_state.is_halt_set = self.cpu.current_state.is_halt_set;
-                self.cpu.prefetch_state.is_irq_set = self.cpu.current_state.is_irq_set;
-                self.cpu.prefetch_state.is_nmi_set = self.cpu.current_state.is_nmi_set;
+                self.cpu.prefetch_state.is_op_code_updated = true;
             }
 
             addr.bus_state = M6502AddressBus::None;
@@ -282,8 +283,12 @@ pub mod emu_cpu{
             }
 
             // Geting new op code
-            if self.runner_step == M6502RunnerStep::ReadPc {
-                self.read_program_counter(addr);
+            if self.runner_step == M6502RunnerStep::ReadPc &&
+                self.cpu.prefetch_state.is_op_code_updated &&
+                self.cpu.prefetch_state.program_counter == self.cpu.current_state.program_counter {
+
+                self.cpu.current_state.op_code = self.cpu.prefetch_state.op_code;
+                self.read_program_counter(addr, self.cpu.current_state);
 
                 // Calling CLI works AFTER next op is loaded
                 if self.cpu.op_cli_clear {
@@ -294,6 +299,13 @@ pub mod emu_cpu{
                     self.cpu.op_sei_set = false;
                     OpCodesUtils::set_status_flag(&mut self.cpu, INTERRUPT_FLAG, true);
                 }
+            }
+
+            // Prefetch uses status register before opcode tick
+            self.cpu.prefetch_state.status_byte = self.cpu.status_register;
+            if self.cpu.prefetch_state.program_counter != self.cpu.current_state.program_counter {
+                self.cpu.prefetch_state.program_counter = self.cpu.current_state.program_counter;
+                self.cpu.prefetch_state.is_op_code_updated = false;
             }
 
             // Calling address/op tick
@@ -326,7 +338,7 @@ pub mod emu_cpu{
             }
 
             if addr.bus_state == M6502AddressBus::None {
-                addr.address = self.cpu.current_state.program_counter;
+                addr.address = self.cpu.prefetch_state.program_counter;
                 addr.bus_state = M6502AddressBus::ReadOpCode;
             }
 
