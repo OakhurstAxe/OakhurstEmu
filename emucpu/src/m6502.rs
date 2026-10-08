@@ -2,7 +2,6 @@
 
 pub mod emu_cpu{
 
-    use crate::m6502::emu_cpu::M6502AddressBus::AddressRead;
     use crate::m6502_address::m6502_address::{*};
     use crate::m6502_opcodes::m6502_opcodes::{*};
     use crate::m6502_opcode_ticks::m6502_opcodeticks::{*};
@@ -21,7 +20,6 @@ pub mod emu_cpu{
         pub write: bool,
         pub byte: u8,
         pub is_accumulator: bool,
-        pub is_abs_y: bool,
         pub bus_state: M6502AddressBus,
     }
 
@@ -32,7 +30,6 @@ pub mod emu_cpu{
                 write,
                 byte,
                 is_accumulator: false,
-                is_abs_y: false,
                 bus_state: M6502AddressBus::None,
             }
         }
@@ -227,40 +224,47 @@ pub mod emu_cpu{
             self.runner_step = M6502RunnerStep::OpCodeStep;
         }
 
-        fn read_program_counter(&mut self, addr: &mut AddressBus, fetch_state: M6502Status) {
+        fn read_program_counter(&mut self, addr: &mut AddressBus) {
             addr.is_accumulator = false;
-            self.cpu.lookup_address.is_abs_y = false;
             if self.is_reset_set {
                 self.reset();
             } else if self.cpu.is_nmi_set {
                 self.nmi();
-            } else if self.cpu.is_irq_set && (fetch_state.status_byte & INTERRUPT_FLAG) == 0 {
+            } else if self.cpu.is_irq_set && (self.cpu.current_state.status_byte & INTERRUPT_FLAG) == 0 {
                 self.irq();
             } else {
                 self.runner_step = M6502RunnerStep::AddressStep;
-                //self.op_code_ticks.check_ticks(self.cpu.program_counter, self.op_code, self.tick_count);
-                self.cpu.current_state.op_code = addr.byte as u16;
-                //println!("PC: {:x}, opcode: {:x} ", self.cpu.program_counter, self.op_code);
+                self.op_code_ticks.check_ticks(self.cpu.current_state.program_counter, self.cpu.current_state.op_code, self.tick_count);
+                self.cpu.current_state.op_code = self.cpu.prefetch_state.op_code;
+                //println!("PC: {:x}, opcode: {:x} ", self.cpu.current_state.program_counter, self.cpu.current_state.op_code);
                 self.cpu.current_state.program_counter = self.cpu.current_state.program_counter.wrapping_add(1);
                 self.tick_count = 0;
             }
         }
 
-        pub fn execute_tick(&mut self, addr: &mut AddressBus) {
-            
-            self.tick_count += 1;
-            
+        fn is_halted(&mut self, addr: &mut AddressBus) -> bool {
             if self.cpu.is_halt_set && self.cpu.is_halted {
-                return;
+                return true;
             }
 
             if self.cpu.is_halt_set && !self.cpu.is_halted && !addr.write {
                 self.cpu.is_halted = true;
-                return;
+                return true;
             }
 
             if !self.cpu.is_halt_set && self.cpu.is_halted {
                 self.cpu.is_halted = false;
+                return true;
+            }
+
+            false
+        }
+
+        pub fn execute_tick(&mut self, addr: &mut AddressBus) {
+            
+            self.tick_count = self.tick_count.wrapping_add(1);
+            
+            if self.is_halted(addr) {
                 return;
             }
 
@@ -268,7 +272,6 @@ pub mod emu_cpu{
                 self.cpu.lookup_address.byte = addr.byte;
                 self.cpu.lookup_address.address = addr.address;
                 self.cpu.lookup_address.is_accumulator = addr.is_accumulator;
-                self.cpu.lookup_address.is_abs_y = addr.is_abs_y;
             }
 
             if addr.bus_state == M6502AddressBus::ReadOpCode {
@@ -286,19 +289,7 @@ pub mod emu_cpu{
             if self.runner_step == M6502RunnerStep::ReadPc &&
                 self.cpu.prefetch_state.is_op_code_updated &&
                 self.cpu.prefetch_state.program_counter == self.cpu.current_state.program_counter {
-
-                self.cpu.current_state.op_code = self.cpu.prefetch_state.op_code;
-                self.read_program_counter(addr, self.cpu.current_state);
-
-                // Calling CLI works AFTER next op is loaded
-                if self.cpu.op_cli_clear {
-                    self.cpu.op_cli_clear = false;
-                    OpCodesUtils::set_status_flag(&mut self.cpu, INTERRUPT_FLAG, false);
-                }
-                if self.cpu.op_sei_set {
-                    self.cpu.op_sei_set = false;
-                    OpCodesUtils::set_status_flag(&mut self.cpu, INTERRUPT_FLAG, true);
-                }
+                self.read_program_counter(addr);
             }
 
             // Prefetch uses status register before opcode tick

@@ -352,11 +352,11 @@ pub mod m6502_address{
     pub struct AddressMethodZero {}
     impl AddressMethod for AddressMethodZero {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.current_state.program_counter);
+            addr.addr_read(cpu.current_state.program_counter);
             cpu.current_state.program_counter += 1;
             false
         }
-        fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_1(&self, _cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             addr.cpu_read(addr.byte as u16);
             true
         }
@@ -365,15 +365,15 @@ pub mod m6502_address{
     pub struct AddressMethodZeroX {}
     impl AddressMethod for AddressMethodZeroX {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.current_state.program_counter);
+            addr.addr_read(cpu.current_state.program_counter);
             cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read((addr.byte.overflowing_add(cpu.register_x).0) as u16);
+            addr.cpu_read((addr.byte.wrapping_add(cpu.register_x)) as u16);
             false        
         }
-        fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_2(&self, _cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             true
         }
     }
@@ -381,15 +381,15 @@ pub mod m6502_address{
     pub struct AddressMethodZeroY {}
     impl AddressMethod for AddressMethodZeroY {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.current_state.program_counter);
+            addr.addr_read(cpu.current_state.program_counter);
             cpu.current_state.program_counter += 1;
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read((addr.byte.overflowing_add(cpu.register_y).0) as u16);
+            addr.cpu_read((addr.byte.wrapping_add(cpu.register_y)) as u16);
             false        
         }
-        fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+        fn step_2(&self, _cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             true
         }
     }
@@ -430,18 +430,8 @@ pub mod m6502_address{
         fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             // If jumping to another page, it reads without overflow and takes additional tick
             cpu.lookup_address.address += (addr.byte as u16) << 8;
-            let byte: u8 = cpu.lookup_address.address as u8;
-            let (value, overflow) = byte.overflowing_add(cpu.register_x);
-            if overflow {
-                addr.addr_read((cpu.lookup_address.address & 0xff00) + value as u16);
-                return false;
-            }
             cpu.lookup_address.address = cpu.lookup_address.address.wrapping_add(cpu.register_x as u16);
             addr.cpu_read(cpu.lookup_address.address);
-            true
-        }
-        fn step_3(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.lookup_address.address.wrapping_add(cpu.register_x as u16));
             true
         }
     }
@@ -462,19 +452,7 @@ pub mod m6502_address{
         fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             // If jumping to another page, it reads without overflow and takes additional tick
             cpu.lookup_address.address += (addr.byte as u16) << 8;
-            let byte: u8 = cpu.lookup_address.address as u8;
-            let (value, overflow) = byte.overflowing_add(cpu.register_y);
-            cpu.lookup_address.is_abs_y = true;
-            if overflow {
-                addr.addr_read((cpu.lookup_address.address & 0xff00) + value as u16);
-                return false;
-            }
-            cpu.lookup_address.address = cpu.lookup_address.address.overflowing_add(cpu.register_y as u16).0;
-            addr.cpu_read(cpu.lookup_address.address);
-            true
-        }
-        fn step_3(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            cpu.lookup_address.address = cpu.lookup_address.address.overflowing_add(cpu.register_y as u16).0;
+            cpu.lookup_address.address = cpu.lookup_address.address.wrapping_add(cpu.register_y as u16);
             addr.cpu_read(cpu.lookup_address.address);
             true
         }
@@ -483,7 +461,7 @@ pub mod m6502_address{
     pub struct AddressMethodIndirect {}
     impl AddressMethod for AddressMethodIndirect {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.cpu_read(cpu.current_state.program_counter);
+            addr.addr_read(cpu.current_state.program_counter);
             cpu.current_state.program_counter += 1;
             false
         }
@@ -531,7 +509,7 @@ pub mod m6502_address{
         fn step_3(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.lookup_address.address += (addr.byte as u16) << 8;
             addr.cpu_read(cpu.lookup_address.address);
-            true
+            false
         }
     }
 
@@ -555,18 +533,7 @@ pub mod m6502_address{
         fn step_3(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             // If jumping to another page, it reads without overflow and takes additional tick
             cpu.lookup_address.address += (addr.byte as u16) << 8;
-            let byte: u8 = cpu.lookup_address.address as u8;
-            let (value, overflow) = byte.overflowing_add(cpu.register_y);
-            if overflow {
-                addr.addr_read((cpu.lookup_address.address & 0xff00) + byte as u16);
-                return false;
-            }
-            cpu.lookup_address.address += cpu.register_y as u16;
-            addr.cpu_read(cpu.lookup_address.address);
-            true
-        }
-        fn step_4(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            cpu.lookup_address.address = cpu.lookup_address.address.overflowing_add(cpu.register_y as u16).0;
+            cpu.lookup_address.address = cpu.lookup_address.address.wrapping_add(cpu.register_y as u16);
             addr.cpu_read(cpu.lookup_address.address);
             true
         }

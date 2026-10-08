@@ -1,8 +1,6 @@
 
 pub mod neogeo {
 
-    use std::sync::Arc;
-
     use bevy::asset::RenderAssetUsages;
     use bevy::color::{palettes::css};
     use bevy::prelude::*;
@@ -66,10 +64,10 @@ pub mod neogeo {
         }
 
         pub fn frame(
-            mut commands: Commands, 
-            mut audio_assets: ResMut<Assets<AudioSource>>,
-            video_handle: Res<MyProcGenImage>,
-            mut video_assets: ResMut<Assets<Image>>,
+            _commands: Commands, 
+            _audio_assets: ResMut<Assets<AudioSource>>,
+            _video_handle: Res<MyProcGenImage>,
+            _video_assets: ResMut<Assets<Image>>,
             mut neogeo_console: ResMut<NeoGeo>
         ) {
 
@@ -98,8 +96,8 @@ pub mod neogeo {
 */
          }
 
-         pub fn gamepad_system(gamepads: Query<(Entity, &Gamepad)>,
-            mut nes_console: ResMut<NeoGeo>
+         pub fn gamepad_system(_gamepads: Query<(Entity, &Gamepad)>,
+            neogeo_console: ResMut<NeoGeo>
         ) {
         }
 

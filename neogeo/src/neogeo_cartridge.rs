@@ -24,7 +24,7 @@ pub mod neogeo {
             self.cpu_prog_rom[location as usize]
         }
 
-        pub fn cpu_write(&mut self, location: u16, byte: u8) {
+        pub fn cpu_write(&mut self, _location: u16, byte: u8) {
             panic!("Write not allowed to cartridge");
         }
     }
