@@ -2,7 +2,8 @@
 // When compiling natively:
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{picking::hover::Hovered, prelude::*, ui::{InteractionDisabled, Pressed}};
+use bevy::ui_widgets::{Button};
 use rfd::FileDialog;
 
 use neogeo::prelude::*;
@@ -92,57 +93,81 @@ fn main() {
 fn neogeo_menu(
     mut commands: Commands,
     mut next_state: ResMut<NextState<EmuAppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<NeoGeoButton>),
-    >,
-) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+    mut buttons: Query<
+        (
+            Has<Pressed>,
+            Has<Hovered>,
+            Has<InteractionDisabled>,
+            &mut BackgroundColor,
+        ), 
+        (
+            Or<(
+                Changed<Pressed>,
+                Changed<Hovered>,
+                Changed<InteractionDisabled>,
+            )>,            
+            With<NeoGeoButton>
+        )
+        >,)
+{
+    for (pressed, hovered, disabled, mut color) in &mut buttons {
+        match (pressed, hovered, disabled) {
+            (true, _, _) => {
                 let files = FileDialog::new()
                     .add_filter("NEO GEO", &["zip"])
                     .pick_file();
-                if let Some(file) = files {
+                if let Some(file) = files {                    
                     commands.insert_resource(NeoGeoRomFile::new(file.into_os_string().into_string().unwrap()));
                     next_state.set(EmuAppState::NeoGeoGame);
                 }
                 *color = PRESSED_BUTTON.into();
             }
-            Interaction::Hovered => {
+            (false, true, _) => {
                 *color = HOVERED_BUTTON.into();
             }
-            Interaction::None => {
+            (false, false, _) => {
                 *color = NORMAL_BUTTON.into();
             }
         }
-    }
+    }    
 }
 
 fn nes_menu(
     mut commands: Commands,
     mut next_state: ResMut<NextState<EmuAppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<NesButton>),
-    >,
-) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+    mut buttons: Query<
+        (
+            Has<Pressed>,
+            Has<Hovered>,
+            Has<InteractionDisabled>,
+            &mut BackgroundColor,
+        ), 
+        (
+            Or<(
+                Changed<Pressed>,
+                Changed<Hovered>,
+                Changed<InteractionDisabled>,
+            )>,            
+            With<NesButton>
+        )
+        >,)
+{
+    for (pressed, hovered, disabled, mut color) in &mut buttons {
+        match (pressed, hovered, disabled) {
+            (true, _, _) => {
                 let files = FileDialog::new()
                     .add_filter("NES", &["nes"])
                     .pick_file();
-                if let Some(file) = files {
+                if let Some(file) = files {                    
                     commands.insert_resource(NesRomFile::new(file.into_os_string().into_string().unwrap()));
                     next_state.set(EmuAppState::NesGame);
                 }
                 *color = PRESSED_BUTTON.into();
             }
-            Interaction::Hovered => {
+            (false, true, _) => {
                 *color = HOVERED_BUTTON.into();
             }
-            Interaction::None => {
+            (false, false, _) => {
                 *color = NORMAL_BUTTON.into();
             }
         }
@@ -152,14 +177,26 @@ fn nes_menu(
 fn vcs_menu(
     mut commands: Commands,
     mut next_state: ResMut<NextState<EmuAppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<VcsButton>)
-        >,
-) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+    mut buttons: Query<
+        (
+            Has<Pressed>,
+            Has<Hovered>,
+            Has<InteractionDisabled>,
+            &mut BackgroundColor,
+        ), 
+        (
+            Or<(
+                Changed<Pressed>,
+                Changed<Hovered>,
+                Changed<InteractionDisabled>,
+            )>,            
+            With<VcsButton>
+        )
+        >,)
+{
+    for (pressed, hovered, disabled, mut color) in &mut buttons {
+        match (pressed, hovered, disabled) {
+            (true, _, _) => {
                 let files = FileDialog::new()
                     .add_filter("BIN", &["bin"])
                     .pick_file();
@@ -169,10 +206,10 @@ fn vcs_menu(
                 }
                 *color = PRESSED_BUTTON.into();
             }
-            Interaction::Hovered => {
+            (false, true, _) => {
                 *color = HOVERED_BUTTON.into();
             }
-            Interaction::None => {
+            (false, false, _) => {
                 *color = NORMAL_BUTTON.into();
             }
         }

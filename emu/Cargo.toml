@@ -7,6 +7,6 @@ edition = "2024"
 vcs = { path = "../vcs" }
 nes = { path = "../nes" }
 neogeo = { path = "../neogeo" }
-bevy = { version = "0.19.0" }
+bevy = { version = "0.20.0" }
 rfd = "0.17.2"
 
