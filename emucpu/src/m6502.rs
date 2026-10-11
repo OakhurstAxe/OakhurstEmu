@@ -192,7 +192,9 @@ pub mod emu_cpu{
         }
 
         pub fn set_nmi(&mut self, value: bool) {
-            self.cpu.is_nmi_set = value;
+            if value {
+                self.cpu.is_nmi_set = value;
+            }
         }
 
         pub fn set_irq(&mut self, value: bool) {
@@ -229,12 +231,13 @@ pub mod emu_cpu{
             if self.is_reset_set {
                 self.reset();
             } else if self.cpu.is_nmi_set {
+                self.cpu.is_nmi_set = false;
                 self.nmi();
             } else if self.cpu.is_irq_set && (self.cpu.current_state.status_byte & INTERRUPT_FLAG) == 0 {
                 self.irq();
             } else {
                 self.runner_step = M6502RunnerStep::AddressStep;
-                self.op_code_ticks.check_ticks(self.cpu.current_state.program_counter, self.cpu.current_state.op_code, self.tick_count);
+                //self.op_code_ticks.check_ticks(self.cpu.current_state.program_counter, self.cpu.current_state.op_code, self.tick_count);
                 self.cpu.current_state.op_code = self.cpu.prefetch_state.op_code;
                 //println!("PC: {:x}, opcode: {:x} ", self.cpu.current_state.program_counter, self.cpu.current_state.op_code);
                 self.cpu.current_state.program_counter = self.cpu.current_state.program_counter.wrapping_add(1);

@@ -1113,11 +1113,6 @@ pub mod m6502_opcodes {
                 let relative_address: i8 = addr.byte as i8;
                 let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
-                // Set dummy read, old page if page bounds jumped
-                addr.address += 1;
-                if addr_high_orig != (cpu.current_state.program_counter & 0xff00) {
-                    addr.address = addr_high_orig + (cpu.current_state.program_counter & 0x00ff);
-                }
                 return false;
             }
             true
@@ -1131,11 +1126,6 @@ pub mod m6502_opcodes {
                 let relative_address: i8 = addr.byte as i8;
                 let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
-                // Set dummy read, old page if page bounds jumped
-                addr.address += 1;
-                if addr_high_orig != (cpu.current_state.program_counter & 0xff00) {
-                    addr.address = addr_high_orig + (cpu.current_state.program_counter & 0x00ff);
-                }
                 return false;
             }
             true
@@ -1149,11 +1139,6 @@ pub mod m6502_opcodes {
                 let relative_address: i8 = addr.byte as i8;
                 let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
-                // Set dummy read, old page if page bounds jumped
-                addr.address += 1;
-                if addr_high_orig != (cpu.current_state.program_counter & 0xff00) {
-                    addr.address = addr_high_orig + (cpu.current_state.program_counter & 0x00ff);
-                }
                 return false;
             }
             true
@@ -1167,11 +1152,6 @@ pub mod m6502_opcodes {
                 let relative_address: i8 = addr.byte as i8;
                 let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
-                // Set dummy read, old page if page bounds jumped
-                addr.address += 1;
-                if addr_high_orig != (cpu.current_state.program_counter & 0xff00) {
-                    addr.address = addr_high_orig + (cpu.current_state.program_counter & 0x00ff);
-                }
                 return false;
             }
             true
@@ -1185,11 +1165,6 @@ pub mod m6502_opcodes {
                 let relative_address: i8 = addr.byte as i8;
                 let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
-                // Set dummy read, old page if page bounds jumped
-                addr.address += 1;
-                if addr_high_orig != (cpu.current_state.program_counter & 0xff00) {
-                    addr.address = addr_high_orig + (cpu.current_state.program_counter & 0x00ff);
-                }
                 return false;
             }
             true
@@ -1203,11 +1178,6 @@ pub mod m6502_opcodes {
                 let relative_address: i8 = addr.byte as i8;
                 let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
-                // Set dummy read, old page if page bounds jumped
-                addr.address += 1;
-                if addr_high_orig != (cpu.current_state.program_counter & 0xff00) {
-                    addr.address = addr_high_orig + (cpu.current_state.program_counter & 0x00ff);
-                }
                 return false;
             }
             true
@@ -1221,11 +1191,6 @@ pub mod m6502_opcodes {
                 let relative_address: i8 = addr.byte as i8;
                 let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
-                // Set dummy read, old page if page bounds jumped
-                addr.address += 1;
-                if addr_high_orig != (cpu.current_state.program_counter & 0xff00) {
-                    addr.address = addr_high_orig + (cpu.current_state.program_counter & 0x00ff);
-                }
                 return false;
             }
             true
@@ -1239,11 +1204,6 @@ pub mod m6502_opcodes {
                 let relative_address: i8 = addr.byte as i8;
                 let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
-                // Set dummy read, old page if page bounds jumped
-                addr.address += 1;
-                if addr_high_orig != (cpu.current_state.program_counter & 0xff00) {
-                    addr.address = addr_high_orig + (cpu.current_state.program_counter & 0x00ff);
-                }
                 return false;
             }
             true
@@ -1341,12 +1301,12 @@ println!("brk");
         }
         fn step_3(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.current_state.program_counter = 0;
-            addr.address = 0xfffe;
+            addr.addr_read(0xfffe);
             false
         }
         fn step_4(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.current_state.program_counter = addr.byte as u16;
-            addr.address = 0xffff;
+            addr.addr_read(0xffff);
             false
         }
         fn step_5(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -1358,6 +1318,7 @@ println!("brk");
     struct CpuOpNmi {}
     impl CpuOperation for CpuOpNmi {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+            println!("NMI");
             OpCodesUtils::push_stack(cpu, addr, (cpu.current_state.program_counter >> 8) as u8);
             false
         }
@@ -1370,17 +1331,16 @@ println!("brk");
             false
         }
         fn step_3(&self, _cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.address = 0xfffa;
+            addr.addr_read(0xfffa);
             false
         }
         fn step_4(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.current_state.program_counter = addr.byte as u16;
-            addr.address += 1;
+            addr.addr_read(0xfffb);
             false
         }
         fn step_5(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.current_state.program_counter += (addr.byte as u16) << 8;
-            //cpu.in_interrupt = false;
             true
         }
     }
@@ -1388,7 +1348,7 @@ println!("brk");
     struct CpuOpIrq {}
     impl CpuOperation for CpuOpIrq {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            //cpu.in_interrupt = true;
+            println!("IRQ");
             OpCodesUtils::push_stack(cpu, addr, (cpu.current_state.program_counter >> 8) as u8);
             false
        }
@@ -1401,12 +1361,12 @@ println!("brk");
             false
         }
         fn step_3(&self, _cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            addr.address = 0xfffe;
+            addr.addr_read(0xfffe);
             false
         }
         fn step_4(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.current_state.program_counter = addr.byte as u16;
-            addr.address += 1;
+            addr.addr_read(0xffff);
             false
         }
         fn step_5(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
@@ -1446,9 +1406,7 @@ println!("brk");
     impl CpuOperation for CpuOpSha {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             let byte = cpu.accumulator & cpu.register_x & (((cpu.lookup_address.address & 0xff00) >> 8) as u8);
-            addr.byte = byte;
-            addr.address = cpu.lookup_address.address.wrapping_add(1);
-            addr.write = true;
+            addr.addr_write(cpu.lookup_address.address.wrapping_add(1), byte);
             true
         }
     }
@@ -1501,9 +1459,7 @@ println!("brk");
     impl CpuOperation for CpuOpIsc {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.lookup_address.byte = cpu.lookup_address.byte.overflowing_add(1).0;
-            addr.byte = cpu.lookup_address.byte;
-            addr.address = cpu.lookup_address.address;
-            addr.write = true;
+            addr.addr_write(cpu.lookup_address.address, addr.byte);
             false
         }
         fn step_1(&self, cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
@@ -1554,9 +1510,7 @@ println!("brk");
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             let byte = (cpu.accumulator & (cpu.register_x & (cpu.lookup_address.address & 0xff00) as u8)) + 1;
-            addr.byte = byte;
-            addr.address = cpu.lookup_address.address;
-            addr.write = true;
+            addr.addr_write(cpu.lookup_address.address, byte);
             true
         }
     }
@@ -1565,9 +1519,7 @@ println!("brk");
     impl CpuOperation for CpuOpShx {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             let byte = cpu.register_x & (((cpu.lookup_address.address & 0xff00) >> 8) + 1) as u8;
-            addr.address = cpu.lookup_address.address;
-            addr.byte = byte;
-            addr.write = true;
+            addr.addr_write(cpu.lookup_address.address, byte);
             true
         }
     }
@@ -1576,9 +1528,7 @@ println!("brk");
     impl CpuOperation for CpuOpShy {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             let byte = cpu.register_y & (((cpu.lookup_address.address & 0xff00) >> 8) + 1) as u8;
-            addr.address = cpu.lookup_address.address;
-            addr.byte = byte;
-            addr.write = true;
+            addr.addr_write(cpu.lookup_address.address, byte);
             true
         }
     }
@@ -1588,8 +1538,7 @@ println!("brk");
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             OpCodesUtils::set_status_flag(cpu, CARRY_FLAG, (addr.byte & 0x80) != 0);
             addr.byte <<= 1;
-            addr.write = true;
-            addr.address = cpu.lookup_address.address;
+            addr.addr_write(cpu.lookup_address.address, addr.byte);
             cpu.accumulator |= addr.byte;
             OpCodesUtils::set_negative_zero(cpu, cpu.accumulator);
             true

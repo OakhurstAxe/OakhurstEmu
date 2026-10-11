@@ -166,7 +166,7 @@ pub mod nes {
             if self.apu_dma_write > 0 && cpu_halted {
                 if self.apu_dma_read {
                     // read byte
-                    addr.address = self.apu_dma_address;
+                    addr.addr_read(self.apu_dma_address);
                     self.apu_dma_address = self.apu_dma_address.wrapping_add(1);
                     self.apu_dma_read = false;
                     self.apu_data_bus = addr.byte;
@@ -184,7 +184,7 @@ pub mod nes {
                 }
             } else if self.ppu_dma_write > 0 && cpu_halted {
                 if self.ppu_dma_read {
-                    addr.address = self.ppu_dma_address;
+                    addr.addr_read(self.ppu_dma_address);
                     self.ppu_dma_address += 1;
                     self.ppu_dma_read = false;
                 } else {
