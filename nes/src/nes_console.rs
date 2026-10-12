@@ -100,7 +100,7 @@ pub mod nes {
                 self.cartridge.execute_tick(&mut self.addr);
                 if self.cartridge.is_irq_set() {
                     //self.cpu_runner.set_irq();
-println!("Cart IRQ set");
+                    println!("Cart IRQ set");
                     self.cartridge.reset_irq();
                 }
 

@@ -198,7 +198,9 @@ pub mod emu_cpu{
         }
 
         pub fn set_irq(&mut self, value: bool) {
-            self.cpu.is_irq_set = value;
+            if value {
+                self.cpu.is_nmi_set = value;
+            }
         }
 
         pub fn halt_cpu(&mut self, halt: bool) {
@@ -234,6 +236,7 @@ pub mod emu_cpu{
                 self.cpu.is_nmi_set = false;
                 self.nmi();
             } else if self.cpu.is_irq_set && (self.cpu.current_state.status_byte & INTERRUPT_FLAG) == 0 {
+                self.cpu.is_irq_set = false;
                 self.irq();
             } else {
                 self.runner_step = M6502RunnerStep::AddressStep;

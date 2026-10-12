@@ -430,7 +430,18 @@ pub mod m6502_address{
         fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             // If jumping to another page, it reads without overflow and takes additional tick
             cpu.lookup_address.address += (addr.byte as u16) << 8;
+            if cpu.lookup_address.address & 0xff00 != (cpu.lookup_address.address.wrapping_add(cpu.register_x as u16)) & 0xff00 {
+                let dummy_read = (cpu.lookup_address.address.wrapping_add(cpu.register_x as u16) & 0x00ff) +
+                    (cpu.lookup_address.address & 0xff00);
+                addr.addr_read(dummy_read);
+                cpu.lookup_address.address = cpu.lookup_address.address.wrapping_add(cpu.register_x as u16);
+                return false;
+            }
             cpu.lookup_address.address = cpu.lookup_address.address.wrapping_add(cpu.register_x as u16);
+            addr.cpu_read(cpu.lookup_address.address);
+            true
+        }
+        fn step_3(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             addr.cpu_read(cpu.lookup_address.address);
             true
         }
@@ -452,7 +463,18 @@ pub mod m6502_address{
         fn step_2(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             // If jumping to another page, it reads without overflow and takes additional tick
             cpu.lookup_address.address += (addr.byte as u16) << 8;
+            if cpu.lookup_address.address & 0xff00 != (cpu.lookup_address.address.wrapping_add(cpu.register_y as u16)) & 0xff00 {
+                let dummy_read = (cpu.lookup_address.address.wrapping_add(cpu.register_y as u16) & 0x00ff) +
+                    (cpu.lookup_address.address & 0xff00);
+                addr.addr_read(dummy_read);
+                cpu.lookup_address.address = cpu.lookup_address.address.wrapping_add(cpu.register_y as u16);
+                return false;
+            }
             cpu.lookup_address.address = cpu.lookup_address.address.wrapping_add(cpu.register_y as u16);
+            addr.cpu_read(cpu.lookup_address.address);
+            true
+        }
+        fn step_3(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             addr.cpu_read(cpu.lookup_address.address);
             true
         }
@@ -509,7 +531,7 @@ pub mod m6502_address{
         fn step_3(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             cpu.lookup_address.address += (addr.byte as u16) << 8;
             addr.cpu_read(cpu.lookup_address.address);
-            false
+            true
         }
     }
 
@@ -533,9 +555,20 @@ pub mod m6502_address{
         fn step_3(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             // If jumping to another page, it reads without overflow and takes additional tick
             cpu.lookup_address.address += (addr.byte as u16) << 8;
+            if cpu.lookup_address.address & 0xff00 != (cpu.lookup_address.address.wrapping_add(cpu.register_y as u16)) & 0xff00 {
+                let dummy_read = (cpu.lookup_address.address.wrapping_add(cpu.register_y as u16) & 0x00ff) +
+                    (cpu.lookup_address.address & 0xff00);
+                addr.addr_read(dummy_read);
+                cpu.lookup_address.address = cpu.lookup_address.address.wrapping_add(cpu.register_y as u16);
+                return false;
+            }
             cpu.lookup_address.address = cpu.lookup_address.address.wrapping_add(cpu.register_y as u16);
             addr.cpu_read(cpu.lookup_address.address);
             true
         }
+        fn step_4(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+            addr.cpu_read(cpu.lookup_address.address);
+            true
+        }    
     }
 }

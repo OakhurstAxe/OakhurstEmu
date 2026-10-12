@@ -15,8 +15,7 @@ pub mod nes {
 
     const DMC_FREQUENCY: [u16; 16] = [
         428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54
-//        218, 190, 170, 160, 143, 127, 113, 107, 95, 80, 71, 64, 53, 42, 36, 54
-  ];
+      ];
 
     pub struct NesApu {
         apu_io_registers: MemoryRamFlagged,

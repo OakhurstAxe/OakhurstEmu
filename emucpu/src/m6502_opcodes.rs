@@ -926,10 +926,15 @@ pub mod m6502_opcodes {
             cpu.lookup_address.byte = byte;
             if cpu.lookup_address.is_accumulator {
                 cpu.accumulator = cpu.lookup_address.byte;
-                return false;
+                return true;
+            } else {
+                addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
             }
-            addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
             false
+        }
+        fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
+            //addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
+            true
         }
     }
 
@@ -1282,7 +1287,7 @@ pub mod m6502_opcodes {
     struct CpuOpBrk {}
     impl CpuOperation for CpuOpBrk {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-println!("brk");
+            println!("BRK");
             OpCodesUtils::set_status_flag(cpu, INTERRUPT_FLAG, true);
             cpu.current_state.program_counter += 3;
             OpCodesUtils::push_stack(cpu, addr, (cpu.current_state.program_counter >> 8) as u8);
@@ -1318,7 +1323,6 @@ println!("brk");
     struct CpuOpNmi {}
     impl CpuOperation for CpuOpNmi {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            println!("NMI");
             OpCodesUtils::push_stack(cpu, addr, (cpu.current_state.program_counter >> 8) as u8);
             false
         }

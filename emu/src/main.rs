@@ -96,7 +96,7 @@ fn neogeo_menu(
     mut buttons: Query<
         (
             Has<Pressed>,
-            Has<Hovered>,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
         ), 
@@ -111,7 +111,7 @@ fn neogeo_menu(
         >,)
 {
     for (pressed, hovered, disabled, mut color) in &mut buttons {
-        match (pressed, hovered, disabled) {
+        match (pressed, hovered.get(), disabled) {
             (true, _, _) => {
                 let files = FileDialog::new()
                     .add_filter("NEO GEO", &["zip"])
@@ -138,7 +138,7 @@ fn nes_menu(
     mut buttons: Query<
         (
             Has<Pressed>,
-            Has<Hovered>,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
         ), 
@@ -153,7 +153,7 @@ fn nes_menu(
         >,)
 {
     for (pressed, hovered, disabled, mut color) in &mut buttons {
-        match (pressed, hovered, disabled) {
+        match (pressed, hovered.get(), disabled) {
             (true, _, _) => {
                 let files = FileDialog::new()
                     .add_filter("NES", &["nes"])
@@ -180,7 +180,7 @@ fn vcs_menu(
     mut buttons: Query<
         (
             Has<Pressed>,
-            Has<Hovered>,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
         ), 
@@ -195,7 +195,7 @@ fn vcs_menu(
         >,)
 {
     for (pressed, hovered, disabled, mut color) in &mut buttons {
-        match (pressed, hovered, disabled) {
+        match (pressed, hovered.get(), disabled) {
             (true, _, _) => {
                 let files = FileDialog::new()
                     .add_filter("BIN", &["bin"])
@@ -248,6 +248,7 @@ pub fn setup_menu(mut commands: Commands) {
             children![(
                 Button,
                 NeoGeoButton,
+                Hovered::default(),
                 Node {
                     width: px(150),
                     height: px(65),
@@ -267,6 +268,7 @@ pub fn setup_menu(mut commands: Commands) {
             (
                 Button,
                 NesButton,
+                Hovered::default(),
                 Node {
                     width: px(150),
                     height: px(65),
@@ -286,6 +288,7 @@ pub fn setup_menu(mut commands: Commands) {
             (
                 Button,
                 VcsButton,
+                Hovered::default(),
                 Node {
                     width: px(150),
                     height: px(65),
