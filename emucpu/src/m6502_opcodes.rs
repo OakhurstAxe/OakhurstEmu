@@ -456,7 +456,7 @@ pub mod m6502_opcodes {
     impl CpuOperation for CpuOpDcp {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             let byte = cpu.lookup_address.byte.wrapping_sub(1);
-            addr.addr_write(addr.address, byte);
+            addr.addr_write(cpu.lookup_address.address, byte);
             OpCodesUtils::set_status_flag(cpu, CARRY_FLAG, cpu.accumulator >= byte);
             OpCodesUtils::set_status_flag(cpu, ZERO_FLAG, cpu.accumulator == byte);
             let negzerocheck= cpu.accumulator.wrapping_sub(byte);
@@ -952,17 +952,14 @@ pub mod m6502_opcodes {
             cpu.lookup_address.byte = byte;
             if cpu.lookup_address.is_accumulator {
                 cpu.accumulator = cpu.lookup_address.byte;
+                return true;
             } else {
-                addr.addr_write(addr.address, addr.byte);
+                addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
             }
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            if cpu.lookup_address.is_accumulator {
-                cpu.accumulator = cpu.lookup_address.byte;
-            } else {
-               addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
-            }
+            //addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
             true
         }
     }
@@ -984,21 +981,18 @@ pub mod m6502_opcodes {
             OpCodesUtils::set_status_flag(cpu, CARRY_FLAG, (byte & 0x80) != 0);
             byte = (byte << 1) | carry;
             OpCodesUtils::set_negative_zero(cpu, byte);
-
+            cpu.lookup_address.byte = byte;
             if cpu.lookup_address.is_accumulator {
-                cpu.accumulator = byte;
+                cpu.accumulator = cpu.lookup_address.byte;
+                return true;
             } else {
-                cpu.lookup_address.byte = byte;
-                addr.addr_write(cpu.lookup_address.address, addr.byte);
+                addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
             }
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            if cpu.lookup_address.is_accumulator {
-                return true;
-            }
-            addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
-            false
+            //addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
+            true
         }
     }
 
@@ -1015,21 +1009,18 @@ pub mod m6502_opcodes {
             OpCodesUtils::set_status_flag(cpu,CARRY_FLAG, (byte & 0x01) != 0);
             byte = (byte >> 1) | carry;
             OpCodesUtils::set_negative_zero(cpu, byte);
-
+            cpu.lookup_address.byte = byte;
             if cpu.lookup_address.is_accumulator {
-                cpu.accumulator = byte;
+                cpu.accumulator = cpu.lookup_address.byte;
+                return true;
             } else {
-                cpu.lookup_address.byte = byte;
-                addr.addr_write(cpu.lookup_address.address, addr.byte);
+                addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
             }
             false
         }
         fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            if cpu.lookup_address.is_accumulator {
-                return true;
-            }
-            addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
-            false
+            //addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
+            true
         }
     }
 
@@ -1499,8 +1490,7 @@ pub mod m6502_opcodes {
     impl CpuOperation for CpuOpSax {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             let byte: u8 = cpu.accumulator & cpu.register_x;
-            addr.byte = byte;
-            addr.write = true;
+            addr.addr_write(cpu.lookup_address.address, byte);
             true
         }
     }
@@ -1540,9 +1530,9 @@ pub mod m6502_opcodes {
     struct CpuOpSlo {}
     impl CpuOperation for CpuOpSlo {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            OpCodesUtils::set_status_flag(cpu, CARRY_FLAG, (addr.byte & 0x80) != 0);
-            addr.byte <<= 1;
-            addr.addr_write(cpu.lookup_address.address, addr.byte);
+            OpCodesUtils::set_status_flag(cpu, CARRY_FLAG, (cpu.lookup_address.byte & 0x80) != 0);
+            cpu.lookup_address.byte <<= 1;
+            addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
             cpu.accumulator |= addr.byte;
             OpCodesUtils::set_negative_zero(cpu, cpu.accumulator);
             true
