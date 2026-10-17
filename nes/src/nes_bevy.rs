@@ -1,15 +1,15 @@
 
 pub mod nes {
 
-    use std::sync::Arc;
+    use std::time::Duration;
 
     use bevy::asset::RenderAssetUsages;
     use bevy::color::{palettes::css};
     use bevy::prelude::*;
+    use bevy::audio::{Source, ChannelCount, SampleRate};    
     use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-
+    
     use crate::nes_console::nes::NesConsole;
-    use crate::nes_apuchannel::nes::SAMPLES_PER_FRAME;
     use crate::nes_ppu::nes::{ NTSC_X_RESOLUTION, NTSC_Y_RESOLUTION };
 
     const IMAGE_WIDTH: u32 = NTSC_X_RESOLUTION;
@@ -31,6 +31,61 @@ pub mod nes {
             Self {
                 0: rom_file,
             }
+        }
+    }
+
+    #[derive(Asset, TypePath)]
+    pub struct NesAudio {
+        samples: Vec<u8>,
+    }
+
+    pub struct NesDecoder {
+        current_progress: usize,
+        sample_length: usize,
+        samples: Vec<u8>,
+        sample_rate: SampleRate,
+        sample_value: f32,
+    }
+
+    impl NesDecoder {
+        fn new(samples: Vec<u8>) -> Self {
+            let sample_rate = 44_100;
+            NesDecoder  {
+                current_progress: 0,
+                sample_length: samples.len(),
+                samples: samples,
+                sample_rate: SampleRate::new(sample_rate).unwrap(),
+                sample_value: 0.,
+            }
+        }
+    }
+
+    impl Iterator for NesDecoder {
+        type Item = f32;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.current_progress >= self.sample_length {
+                return None;
+            }
+
+            self.sample_value = self.samples[self.current_progress] as f32 / 128. - 1.;
+            self.current_progress += 1;
+            Some(self.sample_value)
+        }
+    }
+
+    impl Source for NesDecoder {
+        fn current_span_len(&self) -> Option<usize> { None }
+        fn channels(&self) -> ChannelCount { ChannelCount::new(1).unwrap() }
+        fn sample_rate(&self) -> SampleRate { self.sample_rate }
+        fn total_duration(&self) -> Option<Duration> { None }
+    }
+
+    impl Decodable for NesAudio {
+        type Decoder = NesDecoder;
+
+        fn decoder(&self) -> Self::Decoder {
+            NesDecoder::new(self.samples.clone())
         }
     }
 
@@ -65,16 +120,16 @@ pub mod nes {
             sprite.custom_size = Some(Vec2::new(windows.single().unwrap().width(), windows.single().unwrap().height()));
             commands.spawn(sprite);
             commands.insert_resource(MyProcGenImage(handle));
+
         }
 
         pub fn frame(
             mut commands: Commands, 
-            mut audio_assets: ResMut<Assets<AudioSource>>,
+            mut audio_assets: ResMut<Assets<NesAudio>>,
             video_handle: Res<MyProcGenImage>,
             mut video_assets: ResMut<Assets<Image>>,
             mut nes_console: ResMut<Nes>
         ) {
-
             let (video, audio) = nes_console.0.run_frame();
             let mut image = video_assets.get_mut(&video_handle.0).expect("Image not found");
  
@@ -98,29 +153,11 @@ pub mod nes {
 
             match audio {
                 Some(audio) => {
-                    let wav_header: Vec<u8> = vec![ 
-                        0x52, 0x49, 0x46, 0x46, //b'R', b'I', b'F', b'F', 
-                        0x1a, 0x03, 0x0, 0x0, 
-                        0x57, 0x41, 0x56, 0x45, //b'W', b'A', b'V', b'E', 
-                        0x66, 0x6d, 0x74, 0x20, //b'f', b'm', b't', 0, 
-                        0x10, 0x0, 0x0, 0x0, 
-                        0x1, 0x0,
-                        0x1, 0x0, 
-                        0x44, 0xac, 0x0, 0x0, 
-                        0x44, 0xac, 0x0, 0x0, 
-                        0x1, 0x0, 
-                        0x8, 0x0, 
-                        0x64, 0x61, 0x74, 0x61, //b'd', b'a', b't', b'a', 
-                        0xee, 0x2, 0x0, 0x0];
-                        
-                    let mut buffer: Vec<u8> = vec![0; SAMPLES_PER_FRAME + 44];
-                    buffer[..44].copy_from_slice(&wav_header);
-                    buffer[44..44 + SAMPLES_PER_FRAME].copy_from_slice(&audio);
-                    let buffer_array: [u8; SAMPLES_PER_FRAME + 44] = buffer.try_into().unwrap();
-                    let audio_source = AudioSource{bytes: Arc::new(buffer_array)};
-                    let audio_handle = audio_assets.add(audio_source);
-                    commands.spawn((AudioPlayer::new(audio_handle), PlaybackSettings::DESPAWN));
-                    },
+                    
+                    let nes_audio: NesAudio = NesAudio { samples: audio.clone() };
+                    let audio_handle = audio_assets.add(nes_audio);
+                    commands.spawn((AudioPlayer(audio_handle), PlaybackSettings::DESPAWN));
+                },
                 None => {
                     eprintln!("No frame audio available");
                 }

@@ -2,7 +2,7 @@
 // When compiling natively:
 use std::time::Duration;
 
-use bevy::{picking::hover::Hovered, prelude::*, ui::{InteractionDisabled, Pressed}};
+use bevy::{audio::AddAudioSource, picking::hover::Hovered, prelude::*, ui::{InteractionDisabled, Pressed}};
 use bevy::ui_widgets::{Button};
 use rfd::FileDialog;
 
@@ -51,6 +51,7 @@ impl<S: States> Plugin for NesPlugin<S> {
     fn build(&self, app: &mut App) {
         app
         .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(17)))
+        .add_audio_source::<NesAudio>()
         .add_systems(OnEnter(EmuAppState::NesGame), NesBevy::setup.run_if(in_state(EmuAppState::NesGame)))
         .add_systems(FixedUpdate, NesBevy::frame.run_if(in_state(EmuAppState::NesGame)))
         .add_systems(Update, NesBevy::gamepad_system.run_if(in_state(EmuAppState::NesGame)));
@@ -61,6 +62,7 @@ impl<S: States> Plugin for VcsPlugin<S> {
     fn build(&self, app: &mut App) {
         app
         .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(17)))
+        .add_audio_source::<VcsAudio>()
         .add_systems(OnEnter(EmuAppState::VcsGame), VcsBevy::setup.run_if(in_state(EmuAppState::VcsGame)))
         .add_systems(FixedUpdate, VcsBevy::frame.run_if(in_state(EmuAppState::VcsGame)))
         .add_systems(Update, VcsBevy::gamepad_system.run_if(in_state(EmuAppState::VcsGame)));

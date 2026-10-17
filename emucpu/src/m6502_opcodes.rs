@@ -932,8 +932,7 @@ pub mod m6502_opcodes {
             }
             false
         }
-        fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            //addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
+        fn step_1(&self, _cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             true
         }
     }
@@ -958,8 +957,7 @@ pub mod m6502_opcodes {
             }
             false
         }
-        fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            //addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
+        fn step_1(&self, _cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             true
         }
     }
@@ -990,8 +988,7 @@ pub mod m6502_opcodes {
             }
             false
         }
-        fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            //addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
+        fn step_1(&self, _cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             true
         }
     }
@@ -1018,8 +1015,7 @@ pub mod m6502_opcodes {
             }
             false
         }
-        fn step_1(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
-            //addr.addr_write(cpu.lookup_address.address, cpu.lookup_address.byte);
+        fn step_1(&self, _cpu: &mut M6502, _addr: &mut AddressBus) -> bool {
             true
         }
     }
@@ -1107,7 +1103,6 @@ pub mod m6502_opcodes {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, CARRY_FLAG) == 0 {
                 let relative_address: i8 = addr.byte as i8;
-                let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
                 return false;
             }
@@ -1120,7 +1115,6 @@ pub mod m6502_opcodes {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, CARRY_FLAG) != 0 {
                 let relative_address: i8 = addr.byte as i8;
-                let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
                 return false;
             }
@@ -1133,7 +1127,6 @@ pub mod m6502_opcodes {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, ZERO_FLAG) == 0 {
                 let relative_address: i8 = addr.byte as i8;
-                let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
                 return false;
             }
@@ -1146,7 +1139,6 @@ pub mod m6502_opcodes {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, ZERO_FLAG) != 0 {
                 let relative_address: i8 = addr.byte as i8;
-                let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
                 return false;
             }
@@ -1159,7 +1151,6 @@ pub mod m6502_opcodes {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, NEGATIVE_FLAG) == 0 {
                 let relative_address: i8 = addr.byte as i8;
-                let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
                 return false;
             }
@@ -1172,7 +1163,6 @@ pub mod m6502_opcodes {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, NEGATIVE_FLAG) != 0 {
                 let relative_address: i8 = addr.byte as i8;
-                let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
                 return false;
             }
@@ -1185,7 +1175,6 @@ pub mod m6502_opcodes {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, OVERFLOW_FLAG) == 0 {
                 let relative_address: i8 = addr.byte as i8;
-                let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
                 return false;
             }
@@ -1198,7 +1187,6 @@ pub mod m6502_opcodes {
         fn step_0(&self, cpu: &mut M6502, addr: &mut AddressBus) -> bool {
             if OpCodesUtils::get_status_flag(cpu, OVERFLOW_FLAG) != 0 {
                 let relative_address: i8 = addr.byte as i8;
-                let addr_high_orig = cpu.current_state.program_counter & 0xff00;
                 cpu.current_state.program_counter = (cpu.current_state.program_counter as i16 + relative_address as i16) as u16;
                 return false;
             }

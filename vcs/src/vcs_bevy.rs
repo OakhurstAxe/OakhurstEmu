@@ -1,11 +1,12 @@
 
 pub mod vcs {
 
-    use std::sync::Arc;
-
-    use bevy::prelude::*;
+    use std::time::Duration;
+    
     use bevy::asset::RenderAssetUsages;
     use bevy::color::{palettes::css};
+    use bevy::prelude::*;
+    use bevy::audio::{Source, ChannelCount, SampleRate};   
     use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
     use crate::vcs_console::vcs::VcsConsole;
@@ -29,6 +30,61 @@ pub mod vcs {
             Self(rom_file)
         }
 
+    }
+
+    #[derive(Asset, TypePath)]
+    pub struct VcsAudio {
+        samples: Vec<f32>,
+    }
+
+    pub struct VcsDecoder {
+        current_progress: usize,
+        sample_length: usize,
+        samples: Vec<f32>,
+        sample_rate: SampleRate,
+        sample_value: f32,
+    }
+
+    impl VcsDecoder {
+        fn new(samples: Vec<f32>) -> Self {
+            let sample_rate = 44_100;
+            VcsDecoder  {
+                current_progress: 0,
+                sample_length: samples.len(),
+                samples: samples,
+                sample_rate: SampleRate::new(sample_rate).unwrap(),
+                sample_value: 0.,
+            }
+        }
+    }
+
+    impl Iterator for VcsDecoder {
+        type Item = f32;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.current_progress >= self.sample_length {
+                return None;
+            }
+
+            self.sample_value = self.samples[self.current_progress];
+            self.current_progress += 1;
+            Some(self.sample_value)
+        }
+    }
+
+    impl Source for VcsDecoder {
+        fn current_span_len(&self) -> Option<usize> { None }
+        fn channels(&self) -> ChannelCount { ChannelCount::new(1).unwrap() }
+        fn sample_rate(&self) -> SampleRate { self.sample_rate }
+        fn total_duration(&self) -> Option<Duration> { None }
+    }
+
+    impl Decodable for VcsAudio {
+        type Decoder = VcsDecoder;
+
+        fn decoder(&self) -> Self::Decoder {
+            VcsDecoder::new(self.samples.clone())
+        }
     }
 
     pub struct VcsBevy {
@@ -66,7 +122,7 @@ pub mod vcs {
 
         pub fn frame(
             mut commands: Commands, 
-            mut audio_assets: ResMut<Assets<AudioSource>>,
+            mut audio_assets: ResMut<Assets<VcsAudio>>,            
             video_handle: Res<MyProcGenImage>,
             mut video_assets: ResMut<Assets<Image>>,
             mut vcs_console: ResMut<Vcs>) {
@@ -95,34 +151,10 @@ pub mod vcs {
 
             match audio {
                 Some(audio) => {
-
-                    // WAV file header, we are creating a single frame
-                    // wav file for Bevy.
-                    // If Bevy can stream data, replace this with that
-                    let wav_header: Vec<u8> = vec![ 
-                        0x52, 0x49, 0x46, 0x46, //b'R', b'I', b'F', b'F', 
-                        0x0b, 0x03, 0x0, 0x0, 
-                        0x57, 0x41, 0x56, 0x45, //b'W', b'A', b'V', b'E', 
-                        0x66, 0x6d, 0x74, 0x20, //b'f', b'm', b't', 0, 
-                        0x10, 0x0, 0x0, 0x0, 
-                        0x1, 0x0,
-                        0x1, 0x0, 
-                        0x44, 0xac, 0x0, 0x0, 
-                        0x44, 0xac, 0x0, 0x0, 
-                        0x1, 0x0, 
-                        0x8, 0x0, 
-                        0x64, 0x61, 0x74, 0x61, //b'd', b'a', b't', b'a', 
-                        0xdf, 0x2, 0x0, 0x0];
-                        
-                    let mut buffer: Vec<u8> = vec![0; 780];
-                    buffer[..44].copy_from_slice(&wav_header[..44]);
-                    for i in 0..735 {
-                        buffer[i+44] = ((audio[i] + 1.0) * 127.0) as u8;
-                    }
-                    let buffer_array: [u8; 780] = buffer.try_into().unwrap();
-                    let audio_source = AudioSource{bytes: Arc::new(buffer_array)};
-                    let audio_handle = audio_assets.add(audio_source);
-                    commands.spawn((AudioPlayer::new(audio_handle), PlaybackSettings::DESPAWN));
+                    
+                    let vcs_audio: VcsAudio = VcsAudio { samples: audio.clone() };
+                    let audio_handle = audio_assets.add(vcs_audio);
+                    commands.spawn((AudioPlayer(audio_handle), PlaybackSettings::DESPAWN));
                 },
                 None => {
                     eprintln!("No frame audio available");
