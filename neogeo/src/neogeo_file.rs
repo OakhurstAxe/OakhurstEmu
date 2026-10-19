@@ -31,7 +31,7 @@ pub mod neogeo {
             let mut archive = zip::ZipArchive::new(zipfile).unwrap();
 
             for file in archive.file_names() {
-                println!("File in zip: {}", file);
+                println!("File in zip: {}", "file");
             }
 
             archive.by_name("005-pg1.p1").unwrap().read_to_end(&mut self.prog_rom_data).unwrap();

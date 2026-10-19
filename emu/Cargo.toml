@@ -7,6 +7,8 @@ edition = "2024"
 vcs = { path = "../vcs" }
 nes = { path = "../nes" }
 neogeo = { path = "../neogeo" }
-bevy = { version = "0.20.0" }
+bevy = { version = "0.20.0", default-features = false, features = [ "ui" ] }
 rfd = "0.17.2"
 
+[profile.release]
+strip = "debuginfo"

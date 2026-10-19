@@ -11,5 +11,5 @@ path = "src/lib.rs"
 emumemory = { path = "../emumemory" }
 emucpu = { path = "../emucpu" }
 bevy = { version = "0.20.0", default-features = false }
-zip = { version = " 8.6.0" }
+zip = { version = " 9.0.5" }
 
