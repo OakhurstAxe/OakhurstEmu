@@ -11,4 +11,8 @@ bevy = { version = "0.20.0", default-features = false, features = [ "ui" ] }
 rfd = "0.17.2"
 
 [profile.release]
-strip = "debuginfo"
+opt-level = "z"     # Optimize for size aggressively ("s" can also be used)
+lto = true          # Enable Link-Time Optimization across all crates
+codegen-units = 1   # Reduce parallel code generation units to optimize better
+panic = "abort"     # Remove panic unwinding code (saves size, but drops stack traces)
+strip = true        # Automatically strip symbols and debug info

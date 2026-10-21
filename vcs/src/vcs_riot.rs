@@ -26,6 +26,9 @@ pub mod vcs {
         overflow_tick: bool,
         select_pressed: bool,
         reset_pressed: bool,
+        is_color: bool,
+        difficulty_left: bool,
+        difficulty_right: bool,
         _debug: u8,
     }
 
@@ -46,6 +49,9 @@ pub mod vcs {
                 overflow_tick: false,
                 select_pressed: false,
                 reset_pressed: false,
+                is_color: true,
+                difficulty_left: false,
+                difficulty_right: false,
                 _debug: 0,
             }
         }
@@ -58,6 +64,30 @@ pub mod vcs {
             self.riot_ram.write(REG_SWBCNT, 255);
             self.select_pressed = false;
             self.reset_pressed = false;
+        }
+
+        pub fn set_color(&mut self, value: bool) {
+            self.is_color = value;
+        }
+
+        pub fn get_color(&self) -> bool {
+            self.is_color
+        }
+
+        pub fn set_difficulty_left(&mut self, value: bool) {
+            self.difficulty_left = value;
+        }
+
+        pub fn get_difficulty_left(&self) -> bool {
+            self.difficulty_left
+        }
+
+        pub fn set_difficulty_right(&mut self, value: bool) {
+            self.difficulty_right = value;
+        }
+
+        pub fn get_difficulty_right(&self) -> bool {
+            self.difficulty_right
         }
 
         pub fn reset_pressed(&mut self, value: bool) {
@@ -161,12 +191,21 @@ pub mod vcs {
             }
 
             if location == REG_SWCHB {
-                let mut result: u8 = 11;
+                let mut result: u8 = 0xCB;
                 if self.select_pressed {
                     result &= 0xFD;
                 }
                 if self.reset_pressed {
                     result &= 0xFE;
+                }
+                if !self.is_color {
+                    result &= 0xF7;
+                }
+                if self.difficulty_left {
+                    result &= 0xBF;
+                }
+                if self.difficulty_right {
+                    result &= 0x7F;
                 }
                 return result;
             }

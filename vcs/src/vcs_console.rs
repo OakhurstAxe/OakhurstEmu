@@ -26,6 +26,9 @@ pub mod vcs {
         cpu_runner: M6502Runner,
         addr: AddressBus,
         inframe: RwLock<bool>,
+        video_frame: Vec<u8>,
+        audio_frame: Vec<f32>,
+        is_paused: bool,
     }
 
     impl VcsConsole {
@@ -55,6 +58,9 @@ pub mod vcs {
                 cpu_runner: M6502Runner::new(M6502Version::AtariVcs),
                 addr: AddressBus { address: 0 , write: false, byte: 0, is_accumulator: false, bus_state: M6502AddressBus::None },
                 inframe: RwLock::new(false),
+                video_frame: vec![0; 0],
+                audio_frame: vec![0.; 0],
+                is_paused: false,
             };
 
             temp_instance.start_up();
@@ -66,6 +72,22 @@ pub mod vcs {
             self.vcs_tia.reset();
 
             self.total_ticks = 0;
+        }
+
+        pub fn get_paused(&self) -> bool {
+            self.is_paused
+        }
+
+        pub fn get_color(&self) -> bool {
+            self.vcs_riot.get_color()
+        }
+
+        pub fn get_difficulty_left(&self) -> bool {
+            self.vcs_riot.get_difficulty_left()
+        }
+
+        pub fn get_difficulty_right(&self) -> bool {
+            self.vcs_riot.get_difficulty_right()
         }
 
         fn get_audio(&mut self) -> Vec<f32> {
@@ -83,6 +105,11 @@ pub mod vcs {
         }
 
         pub fn run_frame (&mut self) -> (Option<Vec<u8>>, Option<Vec<f32>>) {
+
+            if self.is_paused {
+                return (Some(self.video_frame.clone()), Some(vec![0.; 0]));
+            }
+
             let mut frame_ticks: u32 = 0;
 
             if *self.inframe.read().unwrap() {
@@ -110,19 +137,19 @@ pub mod vcs {
                 frame_ticks += 1;
             }
 
-            let video = self.vcs_tia.get_screen();
-            let audio = self.get_audio();
+            self.video_frame = self.vcs_tia.get_screen();
+            self.audio_frame = self.get_audio();
 
             *self.inframe.write().unwrap() = false;
 
-            (Some(video), Some(audio))
+            (Some(self.video_frame.clone()), Some(self.audio_frame.clone()))
         }
 
-        pub fn left_controler_select(&mut self, value: bool) {
+        pub fn select(&mut self, value: bool) {
             self.vcs_riot.select_pressed(value);
         }
 
-        pub fn left_controler_start(&mut self, value: bool) {
+        pub fn reset(&mut self, value: bool) {
             self.vcs_riot.reset_pressed(value);
         }
 
@@ -136,6 +163,22 @@ pub mod vcs {
 
         pub fn left_controler_left_right(&mut self, value: i8) {
             self.vcs_riot.left_controller_left_right(value);
+        }
+
+        pub fn pause(&mut self, value: bool) {
+            self.is_paused = value;
+        }
+
+        pub fn set_color(&mut self, value: bool) {
+            self.vcs_riot.set_color(value);
+        }
+
+        pub fn set_difficulty_left(&mut self, value: bool) {
+            self.vcs_riot.set_difficulty_left(value);
+        }
+
+        pub fn set_difficulty_right(&mut self, value: bool) {
+            self.vcs_riot.set_difficulty_right(value);
         }
     }
 

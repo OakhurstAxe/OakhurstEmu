@@ -3,16 +3,38 @@ pub mod vcs {
 
     use std::time::Duration;
     
+    use bevy::app::AppExit;
     use bevy::asset::RenderAssetUsages;
-    use bevy::color::{palettes::css};
-    use bevy::prelude::*;
     use bevy::audio::{Source, ChannelCount, SampleRate};   
+    use bevy::color::{palettes::css};
+    use bevy::{picking::hover::Hovered, ui::{InteractionDisabled, Pressed}};
     use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    use bevy::ui_widgets::{Activate, Button};
+    use bevy::prelude::*;
 
     use crate::vcs_console::vcs::VcsConsole;
 
     const IMAGE_WIDTH: u32 = 160;
     const IMAGE_HEIGHT: u32 = 210;
+
+    pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+    pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+    pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.35, 0.35);
+
+    #[derive(Component)]
+    struct PowerButton;
+    #[derive(Component)]
+    struct TvTypeButton;
+    #[derive(Component)]
+    struct DifficultyLeftButton;
+    #[derive(Component)]
+    struct DifficultyRightButton;
+    #[derive(Component)]
+    struct PauseButton;
+    #[derive(Component)]
+    struct SelectButton;
+    #[derive(Component)]
+    struct ResetButton;
 
     /// Store the image handle that we will draw to, here.
     #[derive(Resource)]
@@ -96,7 +118,8 @@ pub mod vcs {
             mut commands: Commands, 
             mut images: ResMut<Assets<Image>>,
             rom_file:  ResMut<VcsRomFile>,
-            windows: Query<&mut Window>) {
+            windows: Query<&mut Window>,
+            ) {
 
             let vcs_console = VcsConsole::new(rom_file.0.clone());
             commands.insert_resource(Vcs(vcs_console));
@@ -114,10 +137,203 @@ pub mod vcs {
             );
 
             let image_handle = images.add(image);
-            let mut sprite = Sprite::from_image(image_handle.clone());
-            sprite.custom_size = Some(Vec2::new(windows.single().unwrap().width(), windows.single().unwrap().height()));
-            commands.spawn(sprite);
+            let mut sprite = ImageNode::new(image_handle.clone());
+            sprite.image_mode = NodeImageMode::Stretch;
+
             commands.insert_resource(MyProcGenImage(image_handle));
+
+            // Power button
+            commands.spawn((
+                Button,
+                PowerButton,
+                Hovered::default(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: px(150),
+                    height: px(65),
+                    top: px(0),
+                    left: px(0),
+                    ..default()
+                },                
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Power"),
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )])
+            )
+                .observe(|_activate: On<Activate>, mut exit: MessageWriter<AppExit>| {
+                    exit.write(AppExit::Success); 
+                }
+            );
+
+            // Tv type button
+            commands.spawn((
+                Button,
+                TvTypeButton,
+                Hovered::default(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: px(150),
+                    height: px(65),
+                    top: px(0),
+                    left: px(150),
+                    ..default()
+                },                
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Color"),
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )])
+            )
+                .observe(|activate: On<PointerPress>,mut vcs_console: ResMut<Vcs>| {
+                    let is_color = !vcs_console.0.get_color();
+                    vcs_console.0.set_color(is_color);
+                }
+            );
+
+            // Difficulty Left
+            commands.spawn((
+                Button,
+                TvTypeButton,
+                Hovered::default(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: px(150),
+                    height: px(65),
+                    top: px(0),
+                    left: px(300),
+                    ..default()
+                },                
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Left Diff"),
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )])
+            )
+                .observe(|activate: On<PointerPress>,mut vcs_console: ResMut<Vcs>| {
+                    let difficulty = !vcs_console.0.get_difficulty_left();
+                    vcs_console.0.set_difficulty_left(difficulty);
+                }
+            );
+
+            // Pause button
+            commands.spawn((
+                Button,
+                PauseButton,
+                Hovered::default(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: px(150),
+                    height: px(65),
+                    top: px(0),
+                    left: px(450),
+                    ..default()
+                },                
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Pause"),
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )])
+            )
+                .observe(|activate: On<PointerPress>,mut vcs_console: ResMut<Vcs>| {
+                    let pause = !vcs_console.0.get_paused();
+                    vcs_console.0.pause(pause);
+                }
+            );
+
+            // Difficulty Right
+            commands.spawn((
+                Button,
+                TvTypeButton,
+                Hovered::default(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: px(150),
+                    height: px(65),
+                    top: px(0),
+                    left: px(600),
+                    ..default()
+                },                
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Right Diff"),
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )])
+            )
+                .observe(|activate: On<PointerPress>,mut vcs_console: ResMut<Vcs>| {
+                    let difficulty = !vcs_console.0.get_difficulty_right();
+                    vcs_console.0.set_difficulty_right(difficulty);
+                }
+            );
+
+            // Select button
+            commands.spawn((
+                Button,
+                PauseButton,
+                Hovered::default(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: px(150),
+                    height: px(65),
+                    top: px(0),
+                    left: px(750),
+                    ..default()
+                },                
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Select"),
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )])
+            )
+                .observe(|activate: On<PointerPress>,mut vcs_console: ResMut<Vcs>| {
+                    vcs_console.0.select(true);
+                }
+            )
+                .observe(|activate: On<PointerRelease>,mut vcs_console: ResMut<Vcs>| {
+                    vcs_console.0.select(false);
+                }
+            );
+
+            // Reset button
+            commands.spawn((
+                Button,
+                ResetButton,
+                Hovered::default(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: px(150),
+                    height: px(65),
+                    top: px(0),
+                    left: px(900),
+                    ..default()
+                },                
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Reset"),
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )])
+            )
+                .observe(|activate: On<PointerPress>,mut vcs_console: ResMut<Vcs>| {
+                    vcs_console.0.reset(true);
+                }
+            )
+                .observe(|activate: On<PointerRelease>,mut vcs_console: ResMut<Vcs>| {
+                    vcs_console.0.reset(false);
+                }
+            );
+
+            commands.spawn((
+                    sprite,
+                    Node {
+                        position_type: PositionType::Absolute,
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        top: px(65),
+                        left: px(0),
+                        ..default()
+                    },             
+                )
+            );
         }
 
         pub fn frame(
@@ -167,15 +383,15 @@ pub mod vcs {
 
             for (_entity, gamepad) in &gamepads {
                 if gamepad.just_pressed(GamepadButton::Select) {
-                    vcs_console.0.left_controler_select(true);
+                    vcs_console.0.select(true);
                 } else if gamepad.just_released(GamepadButton::Select) {
-                    vcs_console.0.left_controler_select(false);
+                    vcs_console.0.select(false);
                 }
 
                 if gamepad.just_pressed(GamepadButton::Start) {
-                    vcs_console.0.left_controler_start(true);
+                    vcs_console.0.reset(true);
                 } else if gamepad.just_released(GamepadButton::Start) {
-                    vcs_console.0.left_controler_start(false);
+                    vcs_console.0.reset(false);
                 }
 
                 if gamepad.just_pressed(GamepadButton::South) {
