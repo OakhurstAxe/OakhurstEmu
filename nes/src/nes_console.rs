@@ -1,200 +1,198 @@
-pub mod nes {
 
-    use std::sync::Mutex;
+use std::sync::Mutex;
 
-    use emucpu::prelude::*;
-    use emumemory::prelude::*;
+use emucpu::prelude::*;
+use emumemory::prelude::*;
 
-    use crate::nes_cartridge::nes::{NesCartridge, NesCartridgeSelector, NesCartridgeTrait};
-    use crate::nes_ppu::nes::NesPpu;
-    use crate::nes_ppu::nes::NesPpuRunner;
-    use crate::nes_inesfile::nes::INesFile;
-    use crate::nes_apu::nes::NesApu;
+use crate::nes_cartridge::{NesCartridge, NesCartridgeSelector, NesCartridgeTrait};
+use crate::nes_ppu::NesPpu;
+use crate::nes_ppu::NesPpuRunner;
+use crate::nes_inesfile::INesFile;
+use crate::nes_apu::NesApu;
 
-    pub const TICKS_PER_FRAME: u16 =  59736;
+pub const TICKS_PER_FRAME: u16 =  59736;
 
-    pub struct NesAudioEvent {
-        pub channel_mix: Vec<u16>,
+pub struct NesAudioEvent {
+    pub channel_mix: Vec<u16>,
+}
+
+pub struct NesConsole {
+    inframe: Mutex<bool>,
+    cpu_runner: M6502Runner,
+    addr: AddressBus,
+    apu: NesApu,
+    ppu: NesPpu,
+    cartridge: Box<dyn NesCartridgeTrait>,
+    cpu_work_ram: MemoryRam,
+    left_controller: u8,
+    right_controller: u8,
+    _debug: u8,
+    pub frame: u32,
+}
+
+unsafe impl Send for NesConsole {}
+
+impl NesConsole {
+
+    pub fn new (rom_file: String) -> NesConsole {
+        let mut ines_file: INesFile = INesFile::new();
+        ines_file.load_file(rom_file);
+        let cart_data = NesCartridge::new(&ines_file);
+        let cartridge: Box<dyn NesCartridgeTrait> = NesCartridgeSelector::select_cartridge(&ines_file, cart_data);
+
+        let mut temp_instance = Self {
+            inframe: Mutex::new(false),
+            cpu_runner: M6502Runner::new(M6502Version::Nes),
+            addr: AddressBus { address: 0 , write: false, byte: 0, is_accumulator: false, bus_state: M6502AddressBus::None },
+            apu: NesApu::new(),
+            ppu: NesPpu::new(),
+            cartridge,
+            cpu_work_ram: MemoryRam::new(String::from("CPU Work RAM"), 0x0800),
+            left_controller: 0,
+            right_controller: 0,
+            _debug: 0,
+            frame: 0,
+        };
+
+        temp_instance.start_up();   
+        //temp_instance.cpu.set_nmi();
+    
+        temp_instance
     }
 
-    pub struct NesConsole {
-        inframe: Mutex<bool>,
-        cpu_runner: M6502Runner,
-        addr: AddressBus,
-        apu: NesApu,
-        ppu: NesPpu,
-        cartridge: Box<dyn NesCartridgeTrait>,
-        cpu_work_ram: MemoryRam,
-        left_controller: u8,
-        right_controller: u8,
-        _debug: u8,
-        pub frame: u32,
+    fn start_up(&mut self)
+    {
+        //self.cpu.reset();
+        //self.cpu.memory.ppu.reset();
     }
 
-    unsafe impl Send for NesConsole {}
+    fn get_audio(&mut self) -> Vec<u8> {
+        self.apu.get_audio_buffer()
+    }
 
-    impl NesConsole {
+    fn ram_execute_tick(&mut self) {
+    
+        if (0x0000..0x2000).contains(&self.addr.address) {
+            let location = self.addr.address % 0x800;  // mirroring
+            if self.addr.write {
+                self.cpu_work_ram.write(location, self.addr.byte);
+                self.addr.write = false;
+            } else {
+                self.addr.byte = self.cpu_work_ram.read(location);
+            }
+        }   
 
-        pub fn new (rom_file: String) -> NesConsole {
-            let mut ines_file: INesFile = INesFile::new();
-            ines_file.load_file(rom_file);
-            let cart_data = NesCartridge::new(&ines_file);
-            let cartridge: Box<dyn NesCartridgeTrait> = NesCartridgeSelector::select_cartridge(&ines_file, cart_data);
+    }
 
-            let mut temp_instance = Self {
-                inframe: Mutex::new(false),
-                cpu_runner: M6502Runner::new(M6502Version::Nes),
-                addr: AddressBus { address: 0 , write: false, byte: 0, is_accumulator: false, bus_state: M6502AddressBus::None },
-                apu: NesApu::new(),
-                ppu: NesPpu::new(),
-                cartridge,
-                cpu_work_ram: MemoryRam::new(String::from("CPU Work RAM"), 0x0800),
-                left_controller: 0,
-                right_controller: 0,
-                _debug: 0,
-                frame: 0,
-            };
+    pub fn run_frame(&mut self) -> (Option<Vec<u8>>, Option<Vec<u8>>) {
 
-            temp_instance.start_up();   
-            //temp_instance.cpu.set_nmi();
+        self.frame += 1;
+        let mut ticks: i32 = 0;
+
+        drop(self.inframe.lock());
+
+        while ticks < TICKS_PER_FRAME as i32 {
+
+            if (0x4020..0x6000).contains(&self.addr.address) {
+                self.addr.write = false;
+            }
+            self.cartridge.execute_tick(&mut self.addr);
+            if self.cartridge.is_irq_set() {
+                //self.cpu_runner.set_irq();
+                println!("Cart IRQ set");
+                self.cartridge.reset_irq();
+            }
+
+            self.ram_execute_tick();
+
+            if (ticks % 3) == 0 {
+                
+                self.apu.execute_tick(&mut self.addr, &mut self.ppu, self.cpu_runner.is_cpu_halted());
+                self.cpu_runner.set_irq(self.apu.is_irq_set());
+
+                self.cpu_runner.halt_cpu(self.apu.ppu_dma_write > 0 || self.apu.apu_dma_write > 0);
+                self.cpu_runner.execute_tick(&mut self.addr);
+                NesPpuRunner::execute_memory(&mut self.ppu, &mut self.addr, &mut self.cartridge);
+            }
+
+            NesPpuRunner::execute_tick(&mut self.ppu, &mut self.cartridge);
+
+            self.cpu_runner.set_nmi(self.ppu.nmi_set);
+            self.ppu.nmi_set = false;
+
+            ticks += 1;
+        }
+        self.read_gamepad();
         
-            temp_instance
-        }
+        let video = self.ppu.screen.clone();
+        let audio = self.get_audio();
 
-        fn start_up(&mut self)
-        {
-            //self.cpu.reset();
-            //self.cpu.memory.ppu.reset();
-        }
-
-        fn get_audio(&mut self) -> Vec<u8> {
-            self.apu.get_audio_buffer()
-        }
-
-        fn ram_execute_tick(&mut self) {
-        
-            if (0x0000..0x2000).contains(&self.addr.address) {
-                let location = self.addr.address % 0x800;  // mirroring
-                if self.addr.write {
-                    self.cpu_work_ram.write(location, self.addr.byte);
-                    self.addr.write = false;
-                } else {
-                    self.addr.byte = self.cpu_work_ram.read(location);
-                }
-            }   
-
-        }
-
-        pub fn run_frame(&mut self) -> (Option<Vec<u8>>, Option<Vec<u8>>) {
-
-            self.frame += 1;
-            let mut ticks: i32 = 0;
-
-            drop(self.inframe.lock());
-
-            while ticks < TICKS_PER_FRAME as i32 {
-
-                if (0x4020..0x6000).contains(&self.addr.address) {
-                    self.addr.write = false;
-                }
-                self.cartridge.execute_tick(&mut self.addr);
-                if self.cartridge.is_irq_set() {
-                    //self.cpu_runner.set_irq();
-                    println!("Cart IRQ set");
-                    self.cartridge.reset_irq();
-                }
-
-                self.ram_execute_tick();
-
-                if (ticks % 3) == 0 {
-                    
-                    self.apu.execute_tick(&mut self.addr, &mut self.ppu, self.cpu_runner.is_cpu_halted());
-                    self.cpu_runner.set_irq(self.apu.is_irq_set());
-
-                    self.cpu_runner.halt_cpu(self.apu.ppu_dma_write > 0 || self.apu.apu_dma_write > 0);
-                    self.cpu_runner.execute_tick(&mut self.addr);
-                    NesPpuRunner::execute_memory(&mut self.ppu, &mut self.addr, &mut self.cartridge);
-                }
-
-                NesPpuRunner::execute_tick(&mut self.ppu, &mut self.cartridge);
-
-                self.cpu_runner.set_nmi(self.ppu.nmi_set);
-                self.ppu.nmi_set = false;
-
-                ticks += 1;
-            }
-            self.read_gamepad();
-            
-            let video = self.ppu.screen.clone();
-            let audio = self.get_audio();
-
-            (Some(video), Some(audio))
-        }
-            
-        pub fn left_controler_a(&mut self, value: bool) {
-
-            if value {
-                self.left_controller |= 0x01;
-            } else {
-                self.left_controller &= 0xfe;
-            }
-        }
-
-        pub fn left_controler_b(&mut self, value: bool) {
-
-            if value {
-                self.left_controller |= 0x02;
-            } else {
-                self.left_controller &= 0xfd;
-            }
-        }
-
-        pub fn left_controler_select(&mut self, value: bool) {
-
-            if value {
-                self.left_controller |= 0x04;
-            } else {
-                self.left_controller &= 0xfb;
-            }
-        }
-
-        pub fn left_controler_start(&mut self, value: bool) {
-
-            if value {
-                self.left_controller |= 0x08;
-            } else {
-                self.left_controller &= 0xf7;
-            }
-        }
-
-        pub fn left_controler_up_down(&mut self, value: i32) {
-            self.left_controller &= 0xcf;
-
-            if value < 0 {
-                self.left_controller |= 0x10;
-            }
-
-            if value > 0 {
-                self.left_controller |= 0x20;
-            }
-        }
-
-        pub fn left_controler_left_right(&mut self, value: i32) {
-            self.left_controller &= 0x3f;
-
-            if value < 0 {
-                self.left_controller |= 0x40;
-            }
-
-            if value > 0 {
-                self.left_controller |= 0x80;
-            }
-        }
-            
-        fn read_gamepad(&mut self) {
-            self.apu.set_left_controller(self.left_controller);
-            self.apu.set_right_controller(self.right_controller);
-        } 
-
+        (Some(video), Some(audio))
     }
+        
+    pub fn left_controler_a(&mut self, value: bool) {
+
+        if value {
+            self.left_controller |= 0x01;
+        } else {
+            self.left_controller &= 0xfe;
+        }
+    }
+
+    pub fn left_controler_b(&mut self, value: bool) {
+
+        if value {
+            self.left_controller |= 0x02;
+        } else {
+            self.left_controller &= 0xfd;
+        }
+    }
+
+    pub fn left_controler_select(&mut self, value: bool) {
+
+        if value {
+            self.left_controller |= 0x04;
+        } else {
+            self.left_controller &= 0xfb;
+        }
+    }
+
+    pub fn left_controler_start(&mut self, value: bool) {
+
+        if value {
+            self.left_controller |= 0x08;
+        } else {
+            self.left_controller &= 0xf7;
+        }
+    }
+
+    pub fn left_controler_up_down(&mut self, value: i32) {
+        self.left_controller &= 0xcf;
+
+        if value < 0 {
+            self.left_controller |= 0x10;
+        }
+
+        if value > 0 {
+            self.left_controller |= 0x20;
+        }
+    }
+
+    pub fn left_controler_left_right(&mut self, value: i32) {
+        self.left_controller &= 0x3f;
+
+        if value < 0 {
+            self.left_controller |= 0x40;
+        }
+
+        if value > 0 {
+            self.left_controller |= 0x80;
+        }
+    }
+        
+    fn read_gamepad(&mut self) {
+        self.apu.set_left_controller(self.left_controller);
+        self.apu.set_right_controller(self.right_controller);
+    } 
+
 }

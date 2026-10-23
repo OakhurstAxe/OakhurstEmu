@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [[test]]
 name = "test"
-path = "src/tests/m6502_test.rs"
+path = "src/tests/integration_tests.rs"
 
 [dependencies]
 emumemory = { path = "../emumemory" }

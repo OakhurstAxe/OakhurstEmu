@@ -1,6 +1,6 @@
 
-use emumemory::base_memory::emu_memory::BaseMemory;
-use emumemory::memory_ram::emu_memory::MemoryRam;
+use emumemory::base_memory::BaseMemory;
+use emumemory::memory_ram::MemoryRam;
 
 #[test]
 fn test_ram_load_read() {

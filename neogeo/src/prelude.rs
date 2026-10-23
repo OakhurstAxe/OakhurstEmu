@@ -1,4 +1,4 @@
 
-pub use crate::neogeo_bevy::neogeo::NeoGeoBevy;
+pub use crate::neogeo_bevy::NeoGeoBevy;
 
-pub use crate::neogeo_bevy::neogeo::NeoGeoRomFile;
+pub use crate::neogeo_bevy::NeoGeoRomFile;

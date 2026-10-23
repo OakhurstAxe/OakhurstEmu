@@ -1,18 +1,17 @@
 
-pub mod vcs {
+use crate::vcs_console_type::ConsoleType;
 
-    pub struct VcsParameters {
-        pub console_type: crate::vcs_console_type::vcs::ConsoleType,
-    }
+pub struct VcsParameters {
+    pub console_type: ConsoleType,
+}
 
-    impl VcsParameters {
+impl VcsParameters {
 
-        pub fn new() -> VcsParameters {
-            Self {
-                console_type: crate::vcs_console_type::vcs::ConsoleType::NTSC,
-            }
+    pub fn new() -> VcsParameters {
+        Self {
+            console_type: ConsoleType::NTSC,
         }
-
     }
 
 }
+
